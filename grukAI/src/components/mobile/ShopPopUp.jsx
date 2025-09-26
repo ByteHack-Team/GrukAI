@@ -286,15 +286,6 @@ function ShopPopUp({ item, isOpen, onClose, onRedeem, userPoints }) {
                   {isSubmitting ? 'Processing...' : `Redeem (${item.points} pts)`}
                 </button>
               </div>
-
-              {/* Digital Item Note */}
-              {isDigitalItem && (
-                <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3 mt-4">
-                  <p className="text-emerald-800 text-sm">
-                    📧 This is a digital item. You'll receive it via email within 24 hours.
-                  </p>
-                </div>
-              )}
             </form>
           </motion.div>
         </motion.div>
