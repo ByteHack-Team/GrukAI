@@ -14,13 +14,7 @@ function AppContent() {
 
   return (
     <div className="min-h-screen bg-gray-50 w-full">
-      <div className="w-full min-h-screen bg-white">
-        {!isLoginPage && (
-          <header className="bg-blue-500 text-white p-4 w-full">
-            <h1 className="text-xl font-bold">GrukAI Mobile</h1>
-          </header>
-        )}
-        
+      <div className="w-full min-h-screen bg-white">        
         <main className={isLoginPage ? "w-full" : "pb-20 w-full"}>
           <Routes>
             <Route path="/login" element={<LoginPage />} />
