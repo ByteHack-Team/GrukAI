@@ -1,6 +1,12 @@
 import React, { useEffect, useRef, useState } from "react";
 import axios from "axios";
 import grukBg from "../assets/GRUK_AI_LOGO-Photoroom.png";
+import LocationOnIcon from "@mui/icons-material/LocationOn";
+import DeleteIcon from "@mui/icons-material/Delete";
+import CloseIcon from "@mui/icons-material/Close";
+import SearchIcon from "@mui/icons-material/Search";
+import ReactDOMServer from "react-dom/server";
+
 
 function Map() {
   const mapRef = useRef(null);
@@ -104,7 +110,10 @@ function Map() {
           });
 
           const userInfo = new window.google.maps.InfoWindow({
-            content: `<div style="font-size:14px"><strong>📍 You are here</strong></div>`,
+            content: `<div style="font-size:14px; display:flex; align-items:center; gap:6px;">
+                        ${ReactDOMServer.renderToString(<LocationOnIcon style={{ color: "#4285F4" }} />)}
+                        <strong>You are here</strong>
+                      </div>`,
           });
 
           userMarker.addListener("click", () => {
@@ -194,9 +203,12 @@ function Map() {
         feature.properties?.location_description || "No description available";
 
       const infoWindow = new window.google.maps.InfoWindow({
-        content: `<div style="font-size:14px; line-height:1.4;">
-                    <strong>🗑️ Trash Can</strong><br/>
-                    ${description}
+        content: `<div style="font-size:14px; line-height:1.4; display:flex; flex-direction:column; gap:4px;">
+                    <div style="display:flex; align-items:center; gap:6px;">
+                      ${ReactDOMServer.renderToString(<DeleteIcon style={{ color: "#2D5A27" }} />)}
+                      <strong>Trash Can</strong>
+                    </div>
+                    <span>${description}</span>
                   </div>`,
       });
 
@@ -234,15 +246,23 @@ function Map() {
               showingGarbageCans ? clearGarbageCanMarkers : searchNearbyGarbageCans
             }
             disabled={searchingGarbageCans || loadingAllCans}
-            className={`px-4 py-2 rounded-full text-white shadow-lg ${
+            className={`px-4 py-2 rounded-full text-white shadow-lg flex items-center gap-2 ${
               showingGarbageCans ? "bg-red-500" : "bg-green-600"
             }`}
           >
-            {searchingGarbageCans
-              ? "Searching..."
-              : showingGarbageCans
-              ? "❌ Hide Cans"
-              : "🗑️ Show Nearby Cans"}
+            {searchingGarbageCans ? (
+              <>
+                <SearchIcon /> Searching...
+              </>
+            ) : showingGarbageCans ? (
+              <>
+                <CloseIcon /> Hide Cans
+              </>
+            ) : (
+              <>
+                <DeleteIcon /> Show Nearby Cans
+              </>
+            )}
           </button>
         </div>
       )}
