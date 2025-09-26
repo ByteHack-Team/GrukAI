@@ -131,14 +131,14 @@ function ShopPopUp({ item, isOpen, onClose, onRedeem, userPoints }) {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+              className="fixed inset-0 z-50 flex items-center justify-center p-4 pb-24 bg-black/50 backdrop-blur-sm"
               onClick={handleClose}
             >
               <motion.div
                 initial={{ opacity: 0, scale: 0.95, y: 20 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                className="bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto"
+                className="bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[75vh] overflow-y-auto"
                 onClick={(e) => e.stopPropagation()}
               >
             {/* Header */}
@@ -311,7 +311,7 @@ function ShopPopUp({ item, isOpen, onClose, onRedeem, userPoints }) {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 pb-24 bg-black/50 backdrop-blur-sm"
           onClick={handleSuccessClose}
         >
           <motion.div
