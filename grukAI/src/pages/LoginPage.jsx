@@ -1,6 +1,16 @@
 import React, { useState } from 'react'
 import GRUKBG from '../components/assets/GRUKBG.jpg'
 import GrukLogo from '../components/assets/GRUK_AI_LOGO-Photoroom.png'
+// near top of LoginPage.jsx
+import { auth, createOrUpdateUser } from '../lib/firestore'   // path may be ../lib/firestore
+import { 
+  GoogleAuthProvider,
+  signInWithPopup,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+} from 'firebase/auth'
+
+
 
 // Button Component
 const Button = ({ 
@@ -149,13 +159,19 @@ const LoginForm = ({ onLogin, onGoogleLogin }) => {
 
   const handleGoogleLogin = async () => {
     setIsLoading(true)
-    
-    // Simulate Google login process - automatically succeed after a short delay
+    const provider = new GoogleAuthProvider()
     try {
-      await new Promise(resolve => setTimeout(resolve, 800)) // Brief loading animation
-      await onGoogleLogin()
-    } catch (error) {
-      setErrors({ general: 'Google login failed. Please try again.' })
+      const result = await signInWithPopup(auth, provider)
+      const user = result.user
+
+      // Create or update Firestore user doc
+      await createOrUpdateUser(user)
+
+      // Notify parent / redirect
+      onLogin(user)
+    } catch (err) {
+      console.error(err)
+      setErrors({ general: err.message })
     } finally {
       setIsLoading(false)
     }
