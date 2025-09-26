@@ -14,6 +14,7 @@ function ShopPopUp({ item, isOpen, onClose, onRedeem, userPoints }) {
 
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [errors, setErrors] = useState({})
+  const [showSuccessModal, setShowSuccessModal] = useState(false)
 
   const handleChange = (e) => {
     const { name, value } = e.target
@@ -74,17 +75,9 @@ function ShopPopUp({ item, isOpen, onClose, onRedeem, userPoints }) {
       // Call the redeem function passed from parent
       onRedeem(item, formData)
       
-      // Reset form and close popup
-      setFormData({
-        fullName: '',
-        email: '',
-        phone: '',
-        address: '',
-        city: '',
-        zipCode: '',
-        specialInstructions: ''
-      })
-      onClose()
+      // Show success modal instead of closing immediately
+      setShowSuccessModal(true)
+      
     } catch (error) {
       console.error('Redemption failed:', error)
     } finally {
@@ -103,6 +96,25 @@ function ShopPopUp({ item, isOpen, onClose, onRedeem, userPoints }) {
       specialInstructions: ''
     })
     setErrors({})
+    setShowSuccessModal(false)
+    onClose()
+  }
+
+  const handleSuccessClose = () => {
+    setShowSuccessModal(false)
+    // Clear form data and reset form state
+    setFormData({
+      fullName: '',
+      email: '',
+      phone: '',
+      address: '',
+      city: '',
+      zipCode: '',
+      specialInstructions: ''
+    })
+    setErrors({})
+    setIsSubmitting(false)
+    // Close the entire popup to return to shop
     onClose()
   }
 
@@ -113,20 +125,22 @@ function ShopPopUp({ item, isOpen, onClose, onRedeem, userPoints }) {
   return (
     <AnimatePresence>
       {isOpen && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
-          onClick={handleClose}
-        >
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95, y: 20 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95, y: 20 }}
-            className="bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto"
-            onClick={(e) => e.stopPropagation()}
-          >
+        <>
+          {!showSuccessModal && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+              onClick={handleClose}
+            >
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                className="bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto"
+                onClick={(e) => e.stopPropagation()}
+              >
             {/* Header */}
             <div className="bg-emerald-100/80 p-4 rounded-t-2xl border-b border-emerald-200/40">
               <div className="flex items-center justify-between">
@@ -289,6 +303,67 @@ function ShopPopUp({ item, isOpen, onClose, onRedeem, userPoints }) {
             </form>
           </motion.div>
         </motion.div>
+      )}
+
+      {/* Success Modal */}
+      {showSuccessModal && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+          onClick={handleSuccessClose}
+        >
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+            className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Success Icon */}
+            <div className="text-center mb-6">
+              <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <div className="text-3xl">✅</div>
+              </div>
+              <h2 className="text-2xl font-bold text-emerald-900 mb-2">Success!</h2>
+              <p className="text-emerald-700">Successfully redeemed {item.name}!</p>
+            </div>
+
+            {/* Item Display */}
+            <div className="flex items-center gap-3 mb-6 p-4 bg-emerald-50 rounded-xl">
+              <div className="text-2xl">{item.image}</div>
+              <div className="flex-1">
+                <h3 className="font-semibold text-emerald-900">{item.name}</h3>
+                <div className="flex items-center gap-1 mt-1">
+                  <span className="text-emerald-600 font-bold">{item.points}</span>
+                  <span className="text-emerald-600 text-sm">points</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Success Message */}
+            <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4 mb-6">
+              <p className="text-emerald-800 text-sm">
+                {isDigitalItem ? (
+                  <>📧 This is a digital item. You will receive it via email within 24 hours.</>
+                ) : (
+                  <>📦 Your item will be shipped to the provided address.</>
+                )}
+              </p>
+            </div>
+
+            {/* Close Button */}
+            <button
+              onClick={handleSuccessClose}
+              className="w-full px-4 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded-lg transition-colors"
+            >
+              Continue Shopping
+            </button>
+          </motion.div>
+        </motion.div>
+      )}
+        </>
       )}
     </AnimatePresence>
   )

@@ -65,15 +65,7 @@ function Shop() {
     // Here you would typically send the redemption data to your backend
     console.log('Redemption successful:', { item, userInfo })
     
-    // Show success message based on item type
-    const isDigitalItem = item.category === 'Digital & Lifestyle'
-    const successMessage = `Successfully redeemed ${item.name}! ${
-      isDigitalItem 
-        ? '📧 This is a digital item. You will receive it via email within 24 hours.' 
-        : '📦 Your item will be shipped to the provided address.'
-    }`
-    
-    alert(successMessage)
+    // Don't close popup here - let the success modal handle the flow
   }
 
   return (
