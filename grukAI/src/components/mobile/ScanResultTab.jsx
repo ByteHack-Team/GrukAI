@@ -24,8 +24,6 @@ function ScanResultTab({ result, onClose }) {
 
   useEffect(() => {
     console.log("✅ ScanResultTab mounted!");
-    // Remove the y.set() line that was causing the jump
-    // Let the initial animation handle the positioning
     
     document.body.style.overflow = 'hidden';
     return () => {
@@ -115,19 +113,25 @@ function ScanResultTab({ result, onClose }) {
     });
   };
 
-  // Check if pointer is over drag handle
+  // Check if pointer is over drag handle OR if sheet is not fully expanded
   const shouldAllowDrag = (event, info) => {
-    if (!dragHandleRef.current) return false;
+    // If fully expanded, only allow drag from handle
+    if (isFullyExpanded) {
+      if (!dragHandleRef.current) return false;
+      
+      const rect = dragHandleRef.current.getBoundingClientRect();
+      const { clientX, clientY } = event;
+      
+      return (
+        clientX >= rect.left &&
+        clientX <= rect.right &&
+        clientY >= rect.top &&
+        clientY <= rect.bottom
+      );
+    }
     
-    const rect = dragHandleRef.current.getBoundingClientRect();
-    const { clientX, clientY } = event;
-    
-    return (
-      clientX >= rect.left &&
-      clientX <= rect.right &&
-      clientY >= rect.top &&
-      clientY <= rect.bottom
-    );
+    // If not fully expanded, allow drag from anywhere
+    return true;
   };
 
   // Simple fallback if Framer Motion is causing issues
@@ -156,9 +160,9 @@ function ScanResultTab({ result, onClose }) {
           type: "spring", 
           stiffness: 300, 
           damping: 30,
-          // Add slight delay to ensure smooth entrance
           delay: 0.1
         }}
+        // Always enable drag, but control behavior with shouldAllowDrag
         drag="y"
         dragConstraints={{ 
           top: window.innerHeight - maxHeight, 
@@ -166,16 +170,16 @@ function ScanResultTab({ result, onClose }) {
         }}
         dragElastic={{ top: 0.1, bottom: 0.2 }}
         onDragStart={(event, info) => {
-          // Only allow drag if started from handle area
+          // Only allow drag based on expansion state and handle position
           if (shouldAllowDrag(event, info)) {
             handleDragStart();
           } else {
-            // Prevent drag if not started from handle
+            // Prevent drag if not allowed
             return false;
           }
         }}
         onDragEnd={handleDragEnd}
-        // Custom drag logic - only allow if over handle
+        // Custom drag logic - prevent drag when fully expanded (except handle)
         onPointerDown={(event) => {
           if (!shouldAllowDrag(event)) {
             event.preventDefault();
@@ -190,7 +194,7 @@ function ScanResultTab({ result, onClose }) {
         className="fixed left-0 right-0 bg-white rounded-t-3xl shadow-2xl z-50 flex flex-col overflow-hidden"
         onClick={handleContentClick}
       >
-        {/* Drag Handle */}
+        {/* Drag Handle - Visual only, no separate drag */}
         <div 
           ref={dragHandleRef}
           className="flex-shrink-0 w-full flex justify-center py-4 cursor-grab active:cursor-grabbing"
@@ -220,7 +224,7 @@ function ScanResultTab({ result, onClose }) {
                 <h2 className="text-xl font-bold text-gray-900">{result.object}</h2>
                 <p className="text-sm text-gray-600 mt-1">{result.material}</p>
                 <p className="text-xs text-blue-600 mt-2 font-medium">
-                  {isFullyExpanded ? "Scroll to see more details" : "Drag handle to explore details"}
+                  {isFullyExpanded ? "Scroll to see more details" : "Drag to explore details"}
                 </p>
               </div>
             </div>
@@ -234,7 +238,9 @@ function ScanResultTab({ result, onClose }) {
                 : 'overflow-hidden pb-6'
             }`}
             style={{
-              transition: 'overflow 0.3s ease-in-out'
+              transition: 'overflow 0.3s ease-in-out',
+              // Prevent drag events from bubbling when scrolling
+              touchAction: isFullyExpanded ? 'pan-y' : 'none'
             }}
           >
             <div className="space-y-4">
