@@ -6,6 +6,8 @@ import FlipCameraIosIcon from "@mui/icons-material/FlipCameraIos";
 import FlashOnIcon from "@mui/icons-material/FlashOn";
 import FlashOffIcon from "@mui/icons-material/FlashOff";
 
+import ScanResultTab from "./ScanResultTab"; // 👈 import bottom sheet
+
 function CameraApp() {
   const [stream, setStream] = useState(null);
   const [error, setError] = useState(null);
@@ -13,6 +15,7 @@ function CameraApp() {
   const [flashEnabled, setFlashEnabled] = useState(false);
   const [isCapturing, setIsCapturing] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
+  const [scanResult, setScanResult] = useState(null); // 👈 store scan result
   const videoRef = useRef(null);
   const navigate = useNavigate();
 
@@ -34,7 +37,6 @@ function CameraApp() {
           facingMode: facingMode,
           width: { ideal: 1280, max: 1920 },
           height: { ideal: 720, max: 1080 },
-          zoom: { ideal: 1.0 },
         },
         audio: false,
       };
@@ -88,27 +90,34 @@ function CameraApp() {
       const canvas = document.createElement("canvas");
       const context = canvas.getContext("2d");
 
-      // Set canvas dimensions
       canvas.width = videoRef.current.videoWidth;
       canvas.height = videoRef.current.videoHeight;
 
-      // Draw current frame
       context.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
 
       // Convert to blob
       canvas.toBlob(
         async (blob) => {
           if (blob) {
-            const formData = new FormData();
-            formData.append("image", blob, "capture.jpg");
-
             console.log("📸 Captured image, sending to API...");
-            console.log("Blob size:", blob.size, "bytes");
 
             // Simulate API call
             await new Promise((resolve) => setTimeout(resolve, 3000));
 
-            console.log("✅ API call completed!");
+            // ✅ Dummy JSON response
+            const dummyResult = {
+              image_url:
+                "https://res.cloudinary.com/demo/image/upload/sample.jpg",
+              disposal_instructions: "Recycle in the blue bin.",
+              material: "Plastic Bottle",
+              object: "Water Bottle",
+              co2value: "0.5 kg CO₂",
+              points_earned: 15,
+              description:
+                "This plastic bottle should be recycled properly to reduce environmental impact.",
+            };
+
+            setScanResult(dummyResult); // 👈 show bottom sheet
           }
 
           setIsCapturing(false);
@@ -128,24 +137,6 @@ function CameraApp() {
     stopCamera();
     navigate("/dashboard");
   };
-
-  if (error) {
-    return (
-      <div className="fixed inset-0 bg-black flex items-center justify-center z-50">
-        <div className="text-center text-white p-8">
-          <CameraAltIcon className="text-6xl mb-4 opacity-50" />
-          <h2 className="text-xl font-bold mb-2">Camera Error</h2>
-          <p className="text-gray-300 mb-4">{error}</p>
-          <button
-            onClick={closeCamera}
-            className="bg-red-500 text-white px-6 py-2 rounded-full hover:bg-red-600 transition-colors"
-          >
-            Close Camera
-          </button>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="fixed inset-0 bg-black z-50">
@@ -228,6 +219,14 @@ function CameraApp() {
             Scanning object, please wait…
           </p>
         </div>
+      )}
+
+      {/* ✅ Show Bottom Sheet on Scan Result */}
+      {scanResult && (
+        <ScanResultTab
+          result={scanResult}
+          onClose={() => setScanResult(null)}
+        />
       )}
     </div>
   );
