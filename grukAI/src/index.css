@@ -9,6 +9,8 @@
   }
   
   body {
-    @apply font-sans text-gray-900 bg-white;
+    font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+    color: #1a202c;
+    background-color: #fff;
   }
 }
