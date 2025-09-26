@@ -13,9 +13,9 @@ function AppContent() {
   const isLoginPage = location.pathname === '/login'
 
   return (
-    <div className="min-h-screen bg-gray-50 w-full">
-      <div className="w-full min-h-screen bg-white">        
-        <main className={isLoginPage ? "w-full" : "pb-20 w-full"}>
+    <div className="min-h-screen bg-gray-50 w-full max-w-none">
+      <div className="w-full min-h-screen bg-white max-w-none">        
+        <main className={isLoginPage ? "w-full max-w-none" : "pb-20 w-full max-w-none"}>
           <Routes>
             <Route path="/login" element={<LoginPage />} />
             <Route path="/" element={<Navigate to="/login" replace />} />

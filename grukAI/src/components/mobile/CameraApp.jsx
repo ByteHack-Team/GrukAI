@@ -155,11 +155,11 @@ function CameraApp() {
   console.log("🎬 CameraApp render - scanResult:", scanResult);
 
   return (
-    <div className="fixed inset-0 bg-black z-50">
+    <div className="fixed inset-0 bg-black z-50 w-screen h-screen">
       {/* Video Stream */}
       <video
         ref={videoRef}
-        className="w-full h-full object-contain bg-black z-0"
+        className="w-full h-full object-cover bg-black z-0"
         playsInline
         muted
         autoPlay
