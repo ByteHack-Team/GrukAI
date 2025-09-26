@@ -113,30 +113,30 @@ function Shop() {
       </div>
 
       {/* Shop Items Grid */}
-      <div className="p-4">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div className="p-3 sm:p-4">
+        <div className="grid grid-cols-1 gap-4">
           {filteredItems.map(item => (
-            <div key={item.id} className="bg-white/80 backdrop-blur-sm rounded-2xl p-4 border border-emerald-200/30 shadow-sm">
-              <div className="flex items-start gap-3 mb-3">
-                <div className="text-3xl">{item.image}</div>
-                <div className="flex-1">
-                  <h3 className="font-semibold text-emerald-900 text-lg">{item.name}</h3>
-                  <p className="text-emerald-700/80 text-sm mb-2">{item.description}</p>
+            <div key={item.id} className="bg-white/80 backdrop-blur-sm rounded-2xl p-4 border border-emerald-200/30 shadow-sm max-w-full">
+              <div className="flex items-start gap-3 mb-4">
+                <div className="text-3xl flex-shrink-0">{item.image}</div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-semibold text-emerald-900 text-base sm:text-lg mb-1">{item.name}</h3>
+                  <p className="text-emerald-700/80 text-sm mb-2 leading-relaxed">{item.description}</p>
                   <span className="inline-block bg-emerald-100 text-emerald-800 px-2 py-1 rounded-full text-xs font-medium">
                     {item.category}
                   </span>
                 </div>
               </div>
               
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-1">
+              <div className="flex items-center justify-between gap-3 mt-4">
+                <div className="flex items-center gap-1 flex-shrink-0">
                   <span className="text-emerald-600 font-bold text-lg">{item.points}</span>
                   <span className="text-emerald-600 text-sm">points</span>
                 </div>
                 <button
                   onClick={() => handleRedeem(item)}
                   disabled={userPoints < item.points}
-                  className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                  className={`px-4 py-2 rounded-full text-sm font-medium transition-colors flex-shrink-0 ${
                     userPoints >= item.points
                       ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
                       : 'bg-gray-300 text-gray-500 cursor-not-allowed'
