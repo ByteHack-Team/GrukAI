@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import GRUKBG from '../components/assets/GRUKBG.jpg'
+import GrukLogo from '../components/assets/GRUK_AI_LOGO-Photoroom.png'
 
 // Button Component
 const Button = ({ 
@@ -15,7 +16,7 @@ const Button = ({
   const baseStyles = 'inline-flex items-center justify-center font-medium rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed'
   
   const variants = {
-    primary: 'bg-blue-600 hover:bg-blue-700 text-white focus:ring-blue-500',
+    primary: 'bg-emerald-600 hover:bg-emerald-700 text-white focus:ring-emerald-500',
     secondary: 'bg-gray-200 hover:bg-gray-300 text-gray-900 focus:ring-gray-500',
     outline: 'border border-gray-300 bg-white hover:bg-gray-50 text-gray-700 focus:ring-gray-500',
     google: 'bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 focus:ring-blue-500 shadow-sm'
@@ -55,17 +56,17 @@ const Input = ({
   ...props 
 }) => {
   const inputStyles = `
-    w-full px-3 py-2 border rounded-lg transition-colors duration-200
-    focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
+    w-full px-3 py-2 border rounded-lg transition-colors duration-200 bg-white/60
+    focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent
     disabled:bg-gray-100 disabled:cursor-not-allowed
-    ${error ? 'border-red-500 focus:ring-red-500' : 'border-gray-300'}
+    ${error ? 'border-red-500 focus:ring-red-500' : 'border-emerald-200'}
     ${className}
   `
 
   return (
     <div className="w-full">
       {label && (
-        <label className="block text-sm font-medium text-gray-700 mb-1">
+        <label className="block text-sm font-medium text-emerald-800 mb-1">
           {label}
           {required && <span className="text-red-500 ml-1">*</span>}
         </label>
@@ -161,10 +162,13 @@ const LoginForm = ({ onLogin, onGoogleLogin }) => {
   }
 
   return (
-    <div className="w-full max-w-md mx-auto bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl p-8 border border-white/20">
+    <div className="w-full max-w-md mx-auto bg-emerald-50/40 backdrop-blur-lg rounded-2xl shadow-xl p-8 border border-emerald-200/20">
       <div className="text-center mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Welcome Back</h1>
-        <p className="text-gray-600">Sign in to your GrukAI account</p>
+        <div className="flex items-center justify-center mb-4">
+          <img src={GrukLogo} alt="GrukAI Logo" className="w-16 h-16 mr-3" />
+          <h1 className="text-4xl font-bold text-emerald-900">GrukAI</h1>
+        </div>
+        <p className="text-emerald-700/80">Sign in to your account</p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
@@ -198,10 +202,10 @@ const LoginForm = ({ onLogin, onGoogleLogin }) => {
 
         <div className="flex items-center justify-between">
           <label className="flex items-center">
-            <input type="checkbox" className="rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
-            <span className="ml-2 text-sm text-gray-600">Remember me</span>
+            <input type="checkbox" className="rounded border-emerald-300 text-emerald-600 focus:ring-emerald-500" />
+            <span className="ml-2 text-sm text-emerald-700">Remember me</span>
           </label>
-          <a href="#" className="text-sm text-blue-600 hover:text-blue-800">
+          <a href="#" className="text-sm text-emerald-600 hover:text-emerald-800">
             Forgot password?
           </a>
         </div>
@@ -245,9 +249,9 @@ const LoginForm = ({ onLogin, onGoogleLogin }) => {
       </div>
 
       <div className="mt-6 text-center">
-        <p className="text-sm text-gray-600">
+        <p className="text-sm text-emerald-700/80">
           Don't have an account?{' '}
-          <a href="#" className="text-blue-600 hover:text-blue-800 font-medium">
+          <a href="#" className="text-emerald-600 hover:text-emerald-800 font-medium">
             Sign up
           </a>
         </p>
@@ -281,13 +285,20 @@ const LoginPage = () => {
 
   return (
     <div 
-      className="min-h-screen flex items-center justify-center p-4 bg-cover bg-center bg-no-repeat relative"
+      className="fixed inset-0 w-screen h-screen flex items-center justify-center p-4 overflow-hidden"
       style={{
-        backgroundImage: `url(${GRUKBG})`
+        backgroundImage: `url(${GRUKBG})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center center',
+        backgroundRepeat: 'no-repeat',
+        width: '100vw',
+        height: '100vh',
+        minWidth: '100vw',
+        minHeight: '100vh'
       }}
     >
       {/* Overlay for better text readability */}
-      <div className="absolute inset-0 bg-black/20"></div>
+      <div className="absolute inset-0 bg-black/10"></div>
       
       {/* Login Form */}
       <div className="relative z-10">
