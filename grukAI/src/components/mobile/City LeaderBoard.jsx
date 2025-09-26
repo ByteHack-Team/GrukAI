@@ -164,16 +164,16 @@ function CityLeaderBoard() {
   }
 
   return (
-    <div className="p-4 space-y-4">
+    <div className="p-3 sm:p-4 space-y-4 overflow-x-hidden max-w-full">
       {/* User's City Highlight */}
-      <div className="bg-emerald-100/50 backdrop-blur-sm rounded-2xl p-4 border-2 border-emerald-300/50 shadow-sm">
+      <div className="bg-emerald-100/50 backdrop-blur-sm rounded-2xl p-3 sm:p-4 border-2 border-emerald-300/50 shadow-sm max-w-full">
         <div className="flex items-center justify-between mb-2">
           <h3 className="text-sm font-bold text-emerald-800">Your City</h3>
-          <span className="text-xs text-emerald-600">Help make it greener! 🌱</span>
+          <span className="text-xs text-emerald-600 flex-shrink-0">Help make it greener! 🌱</span>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="text-2xl">#5</div>
-          <div className="flex-1">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="text-2xl flex-shrink-0">#5</div>
+          <div className="flex-1 min-w-0">
             <p className="font-semibold text-emerald-900">San Francisco ranked #5</p>
             <p className="text-xs text-emerald-700">91.4/100 health score</p>
           </div>
@@ -181,11 +181,11 @@ function CityLeaderBoard() {
       </div>
 
       {/* Top Cities List */}
-      <div className="space-y-3">
+      <div className="space-y-3 max-w-full">
         {topCities.map((city, index) => (
           <div
             key={city.id}
-            className={`rounded-2xl p-4 border transform transition-all duration-700 hover:scale-[1.03] hover:-translate-y-1 relative ${
+            className={`rounded-2xl p-3 sm:p-4 border transform transition-all duration-700 hover:scale-[1.03] hover:-translate-y-1 relative max-w-full overflow-hidden ${
               getRankStyle(city.rank, city.isUserCity)
             } ${
               animateCards ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'
@@ -198,29 +198,29 @@ function CityLeaderBoard() {
             }}
           >
             {/* City Header */}
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-3">
-                <div className={`text-2xl font-bold transition-all duration-300 ${
+            <div className="flex items-center justify-between mb-3 min-w-0">
+              <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+                <div className={`text-xl sm:text-2xl font-bold transition-all duration-300 flex-shrink-0 ${
                   city.rank <= 3 ? 'transform hover:scale-125 hover:rotate-12' : ''
                 }`}>
                   {getRankIcon(city.rank)}
                 </div>
-                <div className={`text-3xl transition-all duration-300 ${
+                <div className={`text-2xl sm:text-3xl transition-all duration-300 flex-shrink-0 ${
                   city.rank <= 3 ? 'transform hover:scale-110 hover:rotate-6' : ''
                 }`}>
                   {city.flag}
                 </div>
-                <div className="flex-1">
-                  <h3 className="font-bold text-lg flex items-center gap-2">
-                    {city.name}
-                    {city.isUserCity && <span className="text-sm animate-pulse">🏠</span>}
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-bold text-base sm:text-lg flex items-center gap-2">
+                    <span className="truncate">{city.name}</span>
+                    {city.isUserCity && <span className="text-sm animate-pulse flex-shrink-0">🏠</span>}
                   </h3>
-                  <p className="text-sm opacity-70">{city.country} • {city.population} people</p>
+                  <p className="text-xs sm:text-sm opacity-70 truncate">{city.country} • {city.population} people</p>
                 </div>
               </div>
               
-              <div className="text-right">
-                <div className={`font-bold text-xl transition-all duration-300 ${getHealthScoreColor(city.healthScore)} ${
+              <div className="text-right flex-shrink-0">
+                <div className={`font-bold text-lg sm:text-xl transition-all duration-300 ${getHealthScoreColor(city.healthScore)} ${
                   city.rank <= 3 ? 'hover:scale-110' : ''
                 }`}>
                   {city.healthScore}
@@ -230,39 +230,39 @@ function CityLeaderBoard() {
             </div>
 
             {/* Environmental Metrics */}
-            <div className="grid grid-cols-2 gap-3 mb-4">
-              <div className="flex justify-between text-sm">
-                <span className="opacity-70">Air Quality:</span>
-                <span className="font-semibold">{city.airQuality}%</span>
+            <div className="grid grid-cols-2 gap-2 sm:gap-3 mb-4">
+              <div className="flex justify-between text-xs sm:text-sm min-w-0">
+                <span className="opacity-70 truncate">Air Quality:</span>
+                <span className="font-semibold flex-shrink-0">{city.airQuality}%</span>
               </div>
-              <div className="flex justify-between text-sm">
-                <span className="opacity-70">Recycling:</span>
-                <span className="font-semibold">{city.recyclingRate}%</span>
+              <div className="flex justify-between text-xs sm:text-sm min-w-0">
+                <span className="opacity-70 truncate">Recycling:</span>
+                <span className="font-semibold flex-shrink-0">{city.recyclingRate}%</span>
               </div>
-              <div className="flex justify-between text-sm">
-                <span className="opacity-70">Green Spaces:</span>
-                <span className="font-semibold">{city.greenSpaces}%</span>
+              <div className="flex justify-between text-xs sm:text-sm min-w-0">
+                <span className="opacity-70 truncate">Green Spaces:</span>
+                <span className="font-semibold flex-shrink-0">{city.greenSpaces}%</span>
               </div>
-              <div className="flex justify-between text-sm">
-                <span className="opacity-70">Renewable:</span>
-                <span className="font-semibold">{city.renewableEnergy}%</span>
+              <div className="flex justify-between text-xs sm:text-sm min-w-0">
+                <span className="opacity-70 truncate">Renewable:</span>
+                <span className="font-semibold flex-shrink-0">{city.renewableEnergy}%</span>
               </div>
             </div>
 
             {/* Carbon Footprint */}
-            <div className="flex justify-between items-center mb-3 p-2 bg-black/5 rounded-lg">
-              <span className="text-sm opacity-70">Carbon Footprint:</span>
-              <span className="font-semibold text-sm">{city.carbonFootprint} tons CO₂/person</span>
+            <div className="flex justify-between items-center mb-3 p-2 bg-black/5 rounded-lg min-w-0">
+              <span className="text-xs sm:text-sm opacity-70 truncate">Carbon Footprint:</span>
+              <span className="font-semibold text-xs sm:text-sm flex-shrink-0">{city.carbonFootprint} tons CO₂/person</span>
             </div>
 
             {/* Initiatives */}
-            <div className="space-y-1">
+            <div className="space-y-1 min-w-0">
               <div className="text-xs opacity-70">Key Initiatives:</div>
               <div className="flex flex-wrap gap-1">
                 {city.initiatives.map((initiative, idx) => (
                   <span 
                     key={idx}
-                    className="text-xs bg-black/8 hover:bg-black/12 px-2 py-1 rounded-full transition-colors duration-200"
+                    className="text-xs bg-black/8 hover:bg-black/12 px-2 py-1 rounded-full transition-colors duration-200 truncate max-w-full"
                   >
                     {initiative}
                   </span>
@@ -272,7 +272,7 @@ function CityLeaderBoard() {
 
             {/* Rank badges for top 3 */}
             {city.rank <= 3 && (
-              <div className="absolute top-3 right-3 text-2xl animate-pulse hover:animate-spin transition-all duration-500">
+              <div className="absolute top-2 right-2 text-xl sm:text-2xl animate-pulse hover:animate-spin transition-all duration-500">
                 ✨
               </div>
             )}

@@ -124,16 +124,16 @@ function UserLeaderBoard() {
   }
 
   return (
-    <div className="p-4 space-y-4">
+    <div className="p-3 sm:p-4 space-y-4 overflow-x-hidden max-w-full">
       {/* Current User Highlight */}
-      <div className="bg-emerald-100/50 backdrop-blur-sm rounded-2xl p-4 border-2 border-emerald-300/50 shadow-sm">
+      <div className="bg-emerald-100/50 backdrop-blur-sm rounded-2xl p-3 sm:p-4 border-2 border-emerald-300/50 shadow-sm max-w-full">
         <div className="flex items-center justify-between mb-2">
           <h3 className="text-sm font-bold text-emerald-800">Your Position</h3>
-          <span className="text-xs text-emerald-600">Keep climbing! 🚀</span>
+          <span className="text-xs text-emerald-600 flex-shrink-0">Keep climbing! 🚀</span>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="text-2xl">#4</div>
-          <div className="flex-1">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="text-2xl flex-shrink-0">#4</div>
+          <div className="flex-1 min-w-0">
             <p className="font-semibold text-emerald-900">You're ranked #4</p>
             <p className="text-xs text-emerald-700">2,670 points behind #1</p>
           </div>
@@ -141,11 +141,11 @@ function UserLeaderBoard() {
       </div>
 
       {/* Top Users List */}
-      <div className="space-y-3">
+      <div className="space-y-3 max-w-full">
         {topUsers.map((user, index) => (
           <div
             key={user.id}
-            className={`rounded-2xl p-4 border transform transition-all duration-700 hover:scale-[1.03] hover:-translate-y-1 ${
+            className={`rounded-2xl p-3 sm:p-4 border transform transition-all duration-700 hover:scale-[1.03] hover:-translate-y-1 max-w-full overflow-hidden ${
               getRankStyle(user.rank, user.isCurrentUser)
             } ${
               animateCards ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'
@@ -158,46 +158,46 @@ function UserLeaderBoard() {
             }}
           >
             {/* Rank Badge */}
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-3">
-                <div className={`text-2xl font-bold transition-all duration-300 ${
+            <div className="flex items-center justify-between mb-3 min-w-0">
+              <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+                <div className={`text-xl sm:text-2xl font-bold transition-all duration-300 flex-shrink-0 ${
                   user.rank <= 3 ? 'transform hover:scale-125 hover:rotate-12' : ''
                 }`}>
                   {getRankIcon(user.rank)}
                 </div>
-                <div className={`text-3xl transition-all duration-300 ${
+                <div className={`text-2xl sm:text-3xl transition-all duration-300 flex-shrink-0 ${
                   user.rank <= 3 ? 'transform hover:scale-110 hover:rotate-6' : ''
                 }`}>
                   {user.avatar}
                 </div>
-                <div className="flex-1">
-                  <h3 className="font-bold text-lg flex items-center gap-2">
-                    {user.name}
-                    {user.isCurrentUser && <span className="text-sm animate-pulse">👋</span>}
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-bold text-base sm:text-lg flex items-center gap-2 truncate">
+                    <span className="truncate">{user.name}</span>
+                    {user.isCurrentUser && <span className="text-sm animate-pulse flex-shrink-0">👋</span>}
                   </h3>
-                  <p className="text-sm opacity-70">📍 {user.city}</p>
+                  <p className="text-xs sm:text-sm opacity-70 truncate">📍 {user.city}</p>
                 </div>
               </div>
               
               {user.rank <= 3 && (
-                <div className="text-2xl animate-pulse hover:animate-spin transition-all duration-500">
+                <div className="text-xl sm:text-2xl animate-pulse hover:animate-spin transition-all duration-500 flex-shrink-0">
                   ✨
                 </div>
               )}
             </div>
 
             {/* Stats Grid */}
-            <div className="grid grid-cols-3 gap-3 mt-4">
-              <div className="text-center">
-                <div className="font-bold text-lg">{user.points.toLocaleString()}</div>
+            <div className="grid grid-cols-3 gap-2 sm:gap-3 mt-4">
+              <div className="text-center min-w-0">
+                <div className="font-bold text-base sm:text-lg truncate">{user.points.toLocaleString()}</div>
                 <div className="text-xs opacity-80">Points</div>
               </div>
-              <div className="text-center">
-                <div className="font-bold text-lg">{user.itemsScanned}</div>
+              <div className="text-center min-w-0">
+                <div className="font-bold text-base sm:text-lg">{user.itemsScanned}</div>
                 <div className="text-xs opacity-80">Items Scanned</div>
               </div>
-              <div className="text-center">
-                <div className="font-bold text-lg">{user.streak}</div>
+              <div className="text-center min-w-0">
+                <div className="font-bold text-base sm:text-lg">{user.streak}</div>
                 <div className="text-xs opacity-80">Day Streak</div>
               </div>
             </div>
