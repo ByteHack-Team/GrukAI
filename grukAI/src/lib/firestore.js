@@ -4,18 +4,14 @@ import {
   collection, addDoc
 } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
-<<<<<<< HEAD
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
-
 function assertEnv(name) {
   const v = import.meta.env[name];
   if (!v) console.warn(`[firebase env] Missing ${name}`);
   return v;
 }
-=======
 import { getFunctions } from "firebase/functions";
-import { getStorage } from "firebase/storage";
->>>>>>> 59c7fbd (checkpoint)
+
 
 const firebaseConfig = {
   apiKey: assertEnv("VITE_FIREBASE_API_KEY"),
