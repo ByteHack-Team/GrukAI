@@ -18,7 +18,7 @@ function BottomNavigation() {
   ]
 
   return (
-    <div className="fixed z-50 w-full h-16 bg-emerald-50/90 backdrop-blur-md border-t border-emerald-200/30 bottom-0 left-0 shadow-lg">
+    <div className="fixed z-50 w-full h-16 bg-emerald-100/80 backdrop-blur-md border-t border-emerald-200/40 bottom-0 left-0 shadow-lg">
       <div className="grid h-full grid-cols-5 w-full px-4">
         {navItems.map(({ path, icon: Icon, label, isCenter }, index) => {
           const isActive = location.pathname === path
