@@ -196,7 +196,7 @@ function CameraApp() {
       </div>
 
       {/* Bottom Controls */}
-      <div className="absolute bottom-0 left-0 right-0 pb-32 p-8 z-20 bg-gradient-to-t from-black/50 to-transparent">
+      <div className="absolute bottom-0 left-0 right-0 pb-40 p-8 z-20 bg-gradient-to-t from-black/50 to-transparent">
         <div className="relative w-full flex justify-center">
           <button
             onClick={capturePhoto}
