@@ -1,12 +1,11 @@
 import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import CloseIcon from "@mui/icons-material/Close";
-import CameraAltIcon from "@mui/icons-material/CameraAlt";
 import FlipCameraIosIcon from "@mui/icons-material/FlipCameraIos";
 import FlashOnIcon from "@mui/icons-material/FlashOn";
 import FlashOffIcon from "@mui/icons-material/FlashOff";
-
 import ScanResultTab from "./ScanResultTab";
+import { auth, uploadScanImage } from "../../lib/firestore";
 
 function CameraApp() {
   const [stream, setStream] = useState(null);
@@ -15,40 +14,32 @@ function CameraApp() {
   const [flashEnabled, setFlashEnabled] = useState(false);
   const [isCapturing, setIsCapturing] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
+  const [uploadStatus, setUploadStatus] = useState("");
   const [scanResult, setScanResult] = useState(null);
-  const videoRef = useRef(null);
-  const navigate = useNavigate();
 
-  // Debug scanResult changes
-  useEffect(() => {
-    console.log("📊 scanResult state changed:", scanResult);
-    if (scanResult) {
-      console.log("🎯 ScanResult is truthy, should show bottom sheet!");
-    } else {
-      console.log("❌ ScanResult is falsy, bottom sheet should be hidden");
-    }
-  }, [scanResult]);
+  const videoRef = useRef(null);
+  const startingRef = useRef(false); // prevent double start (StrictMode)
+  const navigate = useNavigate();
 
   useEffect(() => {
     startCamera();
-    return () => {
-      stopCamera();
-    };
+    return () => stopCamera();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [facingMode]);
 
   const startCamera = async () => {
+    if (startingRef.current) return;
+    startingRef.current = true;
     try {
-      if (stream) {
-        stream.getTracks().forEach((track) => track.stop());
-      }
+      if (stream) stream.getTracks().forEach(t => t.stop());
 
       const constraints = {
         video: {
-          facingMode: facingMode,
-          width: { ideal: 1280, max: 1920 },
-          height: { ideal: 720, max: 1080 },
+          facingMode,
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
         },
-        audio: false,
+        audio: false
       };
 
       const mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
@@ -56,89 +47,115 @@ function CameraApp() {
 
       if (videoRef.current) {
         videoRef.current.srcObject = mediaStream;
-        videoRef.current.play();
+        // Safely call play, ignore AbortError
+        const playPromise = videoRef.current.play();
+        if (playPromise && typeof playPromise.then === "function") {
+          playPromise.catch(err => {
+            if (err.name !== "AbortError") {
+              console.warn("Video play issue:", err);
+            }
+          });
+        }
       }
       setError(null);
-    } catch (err) {
-      console.error("Error accessing camera:", err);
-      setError("Camera access denied or not available");
+    } catch (e) {
+      console.error("Camera error:", e);
+      setError("Camera access denied or unavailable");
+    } finally {
+      // allow restart if effect re-runs
+      startingRef.current = false;
     }
   };
 
   const stopCamera = () => {
-    if (stream) {
-      stream.getTracks().forEach((track) => track.stop());
-      setStream(null);
-    }
+    if (stream) stream.getTracks().forEach(t => t.stop());
+    setStream(null);
   };
 
-  const flipCamera = () => {
-    setFacingMode((prevMode) => (prevMode === "user" ? "environment" : "user"));
-  };
+  const flipCamera = () =>
+    setFacingMode(prev => (prev === "user" ? "environment" : "user"));
 
   const toggleFlash = () => {
-    setFlashEnabled(!flashEnabled);
+    setFlashEnabled(f => !f);
     if (stream) {
-      const videoTrack = stream.getVideoTracks()[0];
-      if (videoTrack && videoTrack.getCapabilities().torch) {
-        videoTrack.applyConstraints({
-          advanced: [{ torch: !flashEnabled }],
-        });
+      const track = stream.getVideoTracks()[0];
+      if (track?.getCapabilities().torch) {
+        track
+          .applyConstraints({ advanced: [{ torch: !flashEnabled }] })
+          .catch(() => {});
       }
     }
   };
 
   const capturePhoto = async () => {
     if (!videoRef.current || isCapturing || isScanning) return;
+    const user = auth.currentUser;
+    if (!user) {
+      setError("You must be logged in to scan.");
+      return;
+    }
 
-    console.log("📸 Starting photo capture...");
     setIsCapturing(true);
     setIsScanning(true);
+    setUploadStatus("Capturing...");
 
     try {
       const canvas = document.createElement("canvas");
-      const context = canvas.getContext("2d");
-
       canvas.width = videoRef.current.videoWidth;
       canvas.height = videoRef.current.videoHeight;
+      if (!canvas.width || !canvas.height) {
+        throw new Error("Video not ready");
+      }
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
 
-      context.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
-
+      setUploadStatus("Converting image...");
       canvas.toBlob(
-        async (blob) => {
-          if (blob) {
-            console.log("📸 Captured image, simulating API call...");
+        async blob => {
+          try {
+            if (!blob) throw new Error("Blob conversion failed");
+            setUploadStatus("Uploading image...");
+            const { url, docId } = await uploadScanImage(user.uid, blob, {
+              source: "camera",
+              status: "raw"
+            });
 
-            // Simulate API call
-            await new Promise((resolve) => setTimeout(resolve, 3000));
-            
-            console.log("✅ API call complete, setting scan result...");
-
-            const dummyResult = {
-              image_url: "https://res.cloudinary.com/demo/image/upload/sample.jpg",
-              disposal_instructions: "Recycle in the blue bin.",
-              material: "Plastic Bottle",
-              object: "Water Bottle",
-              co2value: "0.5 kg CO₂",
-              points_earned: 15,
-              description: "This plastic bottle should be recycled properly to reduce environmental impact.",
+            const result = {
+              image_url: url,
+              firestore_id: docId,
+              object: "Unknown",
+              material: "Analyzing...",
+              disposal_instructions: "Pending AI analysis...",
+              description:
+                "Image uploaded. AI (Gemini) analysis will replace this.",
+              points_earned: 0,
+              co2value: "—"
             };
 
-            console.log("🔄 About to set scanResult:", dummyResult);
-            setScanResult(dummyResult);
-            console.log("✅ setScanResult called!");
+            setUploadStatus("Uploaded.");
+            setScanResult(result);
+          } catch (err) {
+            console.error("Upload error:", err);
+            if (err?.code === "storage/unauthorized") {
+              setError("Unauthorized: check Storage rules / auth state.");
+            } else {
+              setError("Upload failed");
+            }
+          } finally {
+            setIsCapturing(false);
+            setIsScanning(false);
+            setTimeout(() => setUploadStatus(""), 2000);
           }
-
-          setIsCapturing(false);
-          setIsScanning(false);
         },
         "image/jpeg",
-        0.8
+        0.9
       );
-    } catch (error) {
-      console.error("Error capturing photo:", error);
+    } catch (e) {
+      console.error("Capture error:", e);
+      setError("Failed to capture image");
       setIsCapturing(false);
       setIsScanning(false);
+      setUploadStatus("");
     }
   };
 
@@ -147,16 +164,10 @@ function CameraApp() {
     navigate("/dashboard");
   };
 
-  const handleCloseScanResult = () => {
-    console.log("🚪 Closing scan result bottom sheet");
-    setScanResult(null);
-  };
-
-  console.log("🎬 CameraApp render - scanResult:", scanResult);
+  const handleCloseScanResult = () => setScanResult(null);
 
   return (
     <div className="fixed inset-0 bg-black z-50 w-screen h-screen">
-      {/* Video Stream */}
       <video
         ref={videoRef}
         className="w-full h-full object-cover bg-black z-0"
@@ -165,26 +176,24 @@ function CameraApp() {
         autoPlay
       />
 
-      {/* Scanning Background Effect */}
       {isScanning && (
         <div className="absolute inset-0 z-10 overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-b from-transparent via-green-500/20 to-transparent animate-scan"></div>
+          <div className="absolute inset-0 bg-gradient-to-b from-transparent via-green-500/20 to-transparent animate-scan" />
         </div>
       )}
 
-      {/* Top Controls */}
       <div className="absolute top-0 left-0 right-0 p-4 z-20 bg-gradient-to-b from-black/50 to-transparent">
         <div className="flex justify-between items-center">
           <button
             onClick={closeCamera}
-            className="p-2 rounded-full bg-black/30 text-white hover:bg-black/50 transition-colors"
+            className="p-2 rounded-full bg-black/30 text-white hover:bg-black/50"
           >
             <CloseIcon className="text-2xl" />
           </button>
 
           <button
             onClick={toggleFlash}
-            className="p-2 rounded-full bg-black/30 text-white hover:bg-black/50 transition-colors"
+            className="p-2 rounded-full bg-black/30 text-white hover:bg-black/50"
           >
             {flashEnabled ? (
               <FlashOnIcon className="text-2xl" />
@@ -195,30 +204,29 @@ function CameraApp() {
         </div>
       </div>
 
-      {/* Bottom Controls */}
       <div className="absolute bottom-0 left-0 right-0 pb-40 p-8 z-20 bg-gradient-to-t from-black/50 to-transparent">
         <div className="relative w-full flex justify-center">
           <button
             onClick={capturePhoto}
             disabled={isCapturing || isScanning}
-            className={`w-20 h-20 rounded-full border-4 border-gray-300 transition-colors flex items-center justify-center ${
+            className={`w-20 h-20 rounded-full border-4 border-gray-300 flex items-center justify-center ${
               isCapturing || isScanning
                 ? "bg-gray-300 cursor-not-allowed"
                 : "bg-white hover:bg-gray-100 active:scale-95"
             }`}
           >
             <div
-              className={`w-16 h-16 rounded-full border-2 transition-transform duration-150 ${
+              className={`w-16 h-16 rounded-full border-2 ${
                 isCapturing || isScanning
                   ? "bg-gray-300 border-gray-400 scale-90"
                   : "bg-white border-gray-400"
               }`}
-            ></div>
+            />
           </button>
 
           <button
             onClick={flipCamera}
-            className="absolute right-12 bottom-1/2 translate-y-1/2 w-12 h-12 rounded-full bg-black/30 text-white hover:bg-black/50 transition-colors flex items-center justify-center"
+            className="absolute right-12 bottom-1/2 translate-y-1/2 w-12 h-12 rounded-full bg-black/30 text-white hover:bg-black/50 flex items-center justify-center"
             style={{ right: "calc(5%)" }}
           >
             <FlipCameraIosIcon className="text-2xl" />
@@ -226,21 +234,22 @@ function CameraApp() {
         </div>
       </div>
 
-      {/* Scanning Text */}
-      {isScanning && (
+      {(isScanning || uploadStatus) && (
         <div className="absolute inset-0 flex items-center justify-center z-30 pointer-events-none">
           <p className="text-white text-lg font-semibold animate-pulse">
-            Scanning object, please wait…
+            {uploadStatus || "Processing..."}
           </p>
         </div>
       )}
 
-      {/* Show Bottom Sheet */}
+      {error && (
+        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-red-600 text-white px-4 py-2 rounded text-sm z-30">
+          {error}
+        </div>
+      )}
+
       {scanResult && (
-        <ScanResultTab
-          result={scanResult}
-          onClose={handleCloseScanResult}
-        />
+        <ScanResultTab result={scanResult} onClose={handleCloseScanResult} />
       )}
     </div>
   );
