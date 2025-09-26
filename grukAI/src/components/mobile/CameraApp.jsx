@@ -31,9 +31,8 @@ function CameraApp() {
       const constraints = {
         video: {
           facingMode: facingMode,
-          width: { ideal: 1280, max: 1920 },
-          height: { ideal: 720, max: 1080 },
-          zoom: { ideal: 1.0 } // Set default zoom to 1x
+          width: { ideal: window.screen.width },
+          height: { ideal: window.screen.height }
         },
         audio: false
       }
@@ -156,7 +155,7 @@ function CameraApp() {
       {/* Video Stream */}
       <video
         ref={videoRef}
-        className="w-full h-full object-contain bg-black"
+        className="w-full h-full object-cover"
         playsInline
         muted
         autoPlay
@@ -181,9 +180,9 @@ function CameraApp() {
         </div>
       </div>
 
-      {/* Bottom Controls - Moved higher to avoid navbar overlap */}
-      <div className="absolute bottom-20 left-0 right-0 pb-8 pt-4 bg-gradient-to-t from-black/50 to-transparent">
-        <div className="flex justify-between items-center px-8">
+      {/* Bottom Controls */}
+      <div className="absolute bottom-0 left-0 right-0 pb-24 bg-gradient-to-t from-black/50 to-transparent">
+        <div className="flex justify-between items-center">
           {/* Gallery Button (placeholder) */}
           <div className="w-12 h-12 rounded-lg bg-gray-600/50 border-2 border-white/30"></div>
 
