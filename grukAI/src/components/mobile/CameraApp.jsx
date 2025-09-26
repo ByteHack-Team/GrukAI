@@ -181,7 +181,7 @@ function CameraApp() {
       </div>
 
       {/* Bottom Controls */}
-      <div className="absolute bottom-0 left-0 right-0 pb-24 bg-gradient-to-t from-black/50 to-transparent">
+      <div className="absolute bottom-0 left-0 right-0 pb-24 p-8 bg-gradient-to-t from-black/50 to-transparent">
         <div className="flex justify-between items-center">
           {/* Gallery Button (placeholder) */}
           <div className="w-12 h-12 rounded-lg bg-gray-600/50 border-2 border-white/30"></div>
