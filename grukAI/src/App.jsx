@@ -10,13 +10,13 @@ import './App.css'
 function App() {
   return (
     <Router>
-      <div className="min-h-screen bg-gray-50">
-        <div className="max-w-sm mx-auto bg-white min-h-screen shadow-lg relative">
-          <header className="bg-blue-500 text-white p-4">
+      <div className="min-h-screen bg-gray-50 w-full">
+        <div className="w-full min-h-screen bg-white">
+          <header className="bg-blue-500 text-white p-4 w-full">
             <h1 className="text-xl font-bold">GrukAI Mobile</h1>
           </header>
           
-          <main className="pb-20">
+          <main className="pb-20 w-full">
             <Routes>
               <Route path="/" element={<Navigate to="/dashboard" replace />} />
               <Route path="/dashboard" element={<Dashboard />} />
@@ -28,7 +28,6 @@ function App() {
           </main>
         </div>
         
-        {/* Move navbar outside the container */}
         <BottomNavigation />
       </div>
     </Router>

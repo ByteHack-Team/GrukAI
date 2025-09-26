@@ -2,9 +2,17 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Mobile-first base styles */
+/* Remove all default margins and padding */
 @layer base {
-  html {
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+  
+  html, body {
+    height: 100%;
+    width: 100%;
     font-size: 16px;
   }
   
@@ -12,5 +20,10 @@
     font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
     color: #1a202c;
     background-color: #fff;
+  }
+
+  #root {
+    height: 100%;
+    width: 100%;
   }
 }
