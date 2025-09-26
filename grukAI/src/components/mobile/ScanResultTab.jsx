@@ -162,8 +162,8 @@ function ScanResultTab({ result, onClose }) {
           damping: 30,
           delay: 0.1
         }}
-        // Conditionally enable drag based on expansion state
-        drag={!isFullyExpanded ? "y" : false}
+        // Always enable drag - let shouldAllowDrag control the behavior
+        drag="y"
         dragConstraints={{ 
           top: window.innerHeight - maxHeight, 
           bottom: window.innerHeight + 100
