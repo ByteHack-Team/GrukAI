@@ -12,7 +12,7 @@ function ScanResultTab({ result, onClose }) {
   
   // Height constraints
   const minHeight = 200;
-  const maxHeight = window.innerHeight * 0.75;
+  const maxHeight = window.innerHeight * 0.85;
   const dismissThreshold = 120;
   
   // Calculate initial position - start with most content below viewport
@@ -42,8 +42,13 @@ function ScanResultTab({ result, onClose }) {
     return unsubscribe;
   }, [fullyExpandedPosition]);
 
-  const handleDragStart = () => {
+  const handleDragStart = (event) => {
     console.log("🔄 Drag started");
+    // Only allow drag start if it's from the handle when fully expanded
+    if (isFullyExpanded && !isPointerOverHandle(event)) {
+      console.log("🚫 Preventing drag - not from handle while expanded");
+      return false;
+    }
     setIsDragging(true);
   };
 
@@ -113,21 +118,26 @@ function ScanResultTab({ result, onClose }) {
     });
   };
 
-  // Check if pointer is over drag handle OR if sheet is not fully expanded
-  const shouldAllowDrag = (event, info) => {
+  // Helper function to check if pointer is over handle
+  const isPointerOverHandle = (event) => {
+    if (!dragHandleRef.current) return false;
+    
+    const rect = dragHandleRef.current.getBoundingClientRect();
+    const { clientX, clientY } = event;
+    
+    return (
+      clientX >= rect.left &&
+      clientX <= rect.right &&
+      clientY >= rect.top &&
+      clientY <= rect.bottom
+    );
+  };
+
+  // Check if drag should be allowed
+  const shouldAllowDrag = (event) => {
     // If fully expanded, only allow drag from handle
     if (isFullyExpanded) {
-      if (!dragHandleRef.current) return false;
-      
-      const rect = dragHandleRef.current.getBoundingClientRect();
-      const { clientX, clientY } = event;
-      
-      return (
-        clientX >= rect.left &&
-        clientX <= rect.right &&
-        clientY >= rect.top &&
-        clientY <= rect.bottom
-      );
+      return isPointerOverHandle(event);
     }
     
     // If not fully expanded, allow drag from anywhere
@@ -162,27 +172,20 @@ function ScanResultTab({ result, onClose }) {
           damping: 30,
           delay: 0.1
         }}
-        // Always enable drag - let shouldAllowDrag control the behavior
+        // Always enable drag - let onDragStart control the behavior
         drag="y"
         dragConstraints={{ 
           top: window.innerHeight - maxHeight, 
           bottom: window.innerHeight + 100
         }}
         dragElastic={{ top: 0.1, bottom: 0.2 }}
-        onDragStart={(event, info) => {
-          // Only allow drag based on expansion state and handle position
-          if (shouldAllowDrag(event, info)) {
-            handleDragStart();
-          } else {
-            // Prevent drag if not allowed
-            return false;
-          }
-        }}
+        onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
-        // Custom drag logic - prevent drag when fully expanded (except handle)
+        // Prevent pointer events on content when expanded
         onPointerDown={(event) => {
-          if (!shouldAllowDrag(event)) {
-            event.preventDefault();
+          if (isFullyExpanded && !isPointerOverHandle(event)) {
+            // Allow normal interactions (clicking, scrolling) in content area
+            return;
           }
         }}
         style={{
@@ -239,8 +242,8 @@ function ScanResultTab({ result, onClose }) {
             }`}
             style={{
               transition: 'overflow 0.3s ease-in-out',
-              // Prevent drag events from bubbling when scrolling
-              touchAction: isFullyExpanded ? 'pan-y' : 'none'
+              // Always allow normal touch interactions in content
+              touchAction: 'auto'
             }}
           >
             <div className="space-y-4">
