@@ -4,6 +4,7 @@ import {
   collection, addDoc
 } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
+<<<<<<< HEAD
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
 function assertEnv(name) {
@@ -11,6 +12,10 @@ function assertEnv(name) {
   if (!v) console.warn(`[firebase env] Missing ${name}`);
   return v;
 }
+=======
+import { getFunctions } from "firebase/functions";
+import { getStorage } from "firebase/storage";
+>>>>>>> 59c7fbd (checkpoint)
 
 const firebaseConfig = {
   apiKey: assertEnv("VITE_FIREBASE_API_KEY"),
@@ -25,6 +30,7 @@ const app = getApps().length ? getApps()[0] : initializeApp(firebaseConfig);
 
 export const db = getFirestore(app);
 export const auth = getAuth(app);
+export const functions = getFunctions(app);
 export const storage = getStorage(app);
 
 export async function createOrUpdateUser(user) {

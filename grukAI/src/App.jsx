@@ -6,6 +6,7 @@ import Leaderboard from './components/mobile/Leaderboard'
 import Map from './components/mobile/Map'
 import Shop from './components/mobile/Shop'
 import LoginPage from './pages/LoginPage'
+import UploadTestImage from "./components/mobile/uploadImages"
 import './App.css'
 
 function AppContent() {
@@ -20,7 +21,7 @@ function AppContent() {
             <Route path="/login" element={<LoginPage />} />
             <Route path="/" element={<Navigate to="/login" replace />} />
             <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/camera" element={<CameraApp />} />
+            <Route path="/camera" element={<UploadTestImage />} />
             <Route path="/leaderboard" element={<Leaderboard />} />
             <Route path="/map" element={<Map />} />
             <Route path="/shop" element={<Shop />} />
