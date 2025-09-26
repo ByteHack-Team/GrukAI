@@ -1,13 +1,16 @@
 import React, { useState } from 'react'
 import GRUKBG from '../components/assets/GRUKBG.jpg'
 import GrukLogo from '../components/assets/GRUK_AI_LOGO-Photoroom.png'
-import { auth } from '../lib/firestore'
+// near top of LoginPage.jsx
+import { auth, createOrUpdateUser } from '../lib/firestore'   // path may be ../lib/firestore
 import { 
-  createUserWithEmailAndPassword, 
-  signInWithEmailAndPassword, 
-  GoogleAuthProvider, 
-  signInWithPopup 
+  GoogleAuthProvider,
+  signInWithPopup,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
 } from 'firebase/auth'
+
+
 
 // Button Component
 const Button = ({ 
@@ -131,7 +134,13 @@ const LoginForm = ({ onLogin }) => {
     const provider = new GoogleAuthProvider()
     try {
       const result = await signInWithPopup(auth, provider)
-      onLogin(result.user)
+      const user = result.user
+
+      // Create or update Firestore user doc
+      await createOrUpdateUser(user)
+
+      // Notify parent / redirect
+      onLogin(user)
     } catch (err) {
       console.error(err)
       setErrors({ general: err.message })
