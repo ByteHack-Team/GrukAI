@@ -194,30 +194,17 @@ function ScanResultTab({ result, onClose }) {
         className="fixed left-0 right-0 bg-white rounded-t-3xl shadow-2xl z-50 flex flex-col overflow-hidden"
         onClick={handleContentClick}
       >
-        {/* Drag Handle - Always draggable */}
-        <motion.div 
+        {/* Drag Handle - Visual only, no separate drag */}
+        <div 
           ref={dragHandleRef}
           className="flex-shrink-0 w-full flex justify-center py-4 cursor-grab active:cursor-grabbing"
           onClick={handleDragHandleClick}
-          // Handle is always draggable regardless of expansion state
-          drag="y"
-          dragConstraints={{ 
-            top: window.innerHeight - maxHeight, 
-            bottom: window.innerHeight + 100
-          }}
-          dragElastic={{ top: 0.1, bottom: 0.2 }}
-          onDragStart={handleDragStart}
-          onDragEnd={handleDragEnd}
-          // Sync handle drag with parent container
-          onDrag={(_, info) => {
-            y.set(initialPosition + info.offset.y);
-          }}
         >
           <motion.div
             className="w-12 h-1.5 bg-gray-400 rounded-full hover:bg-gray-500 transition-colors"
             whileTap={{ scale: 1.1 }}
           />
-        </motion.div>
+        </div>
 
         {/* Content Container */}
         <div className="flex-1 overflow-hidden flex flex-col">
