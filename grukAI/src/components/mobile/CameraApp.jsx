@@ -12,6 +12,7 @@ function CameraApp() {
   const [facingMode, setFacingMode] = useState("environment");
   const [flashEnabled, setFlashEnabled] = useState(false);
   const [isCapturing, setIsCapturing] = useState(false);
+  const [isScanning, setIsScanning] = useState(false);
   const videoRef = useRef(null);
   const navigate = useNavigate();
 
@@ -33,7 +34,7 @@ function CameraApp() {
           facingMode: facingMode,
           width: { ideal: 1280, max: 1920 },
           height: { ideal: 720, max: 1080 },
-          zoom: { ideal: 1.0 }, // Set default zoom to 1x
+          zoom: { ideal: 1.0 },
         },
         audio: false,
       };
@@ -78,54 +79,40 @@ function CameraApp() {
   };
 
   const capturePhoto = async () => {
-    if (!videoRef.current || isCapturing) return;
+    if (!videoRef.current || isCapturing || isScanning) return;
 
     setIsCapturing(true);
+    setIsScanning(true);
 
     try {
       const canvas = document.createElement("canvas");
       const context = canvas.getContext("2d");
 
-      // Set canvas dimensions to match video
+      // Set canvas dimensions
       canvas.width = videoRef.current.videoWidth;
       canvas.height = videoRef.current.videoHeight;
 
-      // Draw the current frame
+      // Draw current frame
       context.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
 
-      // Convert to base64 string
-      const base64Image = canvas.toDataURL("image/jpeg", 0.8);
-
-      // Convert to blob for API sending
+      // Convert to blob
       canvas.toBlob(
         async (blob) => {
           if (blob) {
-            // Create FormData for API (ready for backend)
             const formData = new FormData();
             formData.append("image", blob, "capture.jpg");
 
-            // Log image data to console
-            console.log("📸 Photo Captured!");
-            console.log("Image size:", blob.size, "bytes");
-            console.log("Image type:", blob.type);
-            console.log(
-              "Base64 preview:",
-              base64Image.substring(0, 100) + "..."
-            );
-            console.log("FormData ready for API:", formData);
-            console.log("Blob object:", blob);
+            console.log("📸 Captured image, sending to API...");
+            console.log("Blob size:", blob.size, "bytes");
 
-            // TODO: Send to backend API
-            // const response = await fetch('/api/upload-image', {
-            //   method: 'POST',
-            //   body: formData
-            // })
+            // Simulate API call
+            await new Promise((resolve) => setTimeout(resolve, 3000));
 
-            // Show success feedback (optional)
-            console.log("✅ Image ready to send to backend!");
+            console.log("✅ API call completed!");
           }
 
           setIsCapturing(false);
+          setIsScanning(false);
         },
         "image/jpeg",
         0.8
@@ -133,6 +120,7 @@ function CameraApp() {
     } catch (error) {
       console.error("Error capturing photo:", error);
       setIsCapturing(false);
+      setIsScanning(false);
     }
   };
 
@@ -164,14 +152,21 @@ function CameraApp() {
       {/* Video Stream */}
       <video
         ref={videoRef}
-        className="w-full h-full object-contain bg-black"
+        className="w-full h-full object-contain bg-black z-0"
         playsInline
         muted
         autoPlay
       />
 
+      {/* Scanning Background Effect */}
+      {isScanning && (
+        <div className="absolute inset-0 z-10 overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-b from-transparent via-green-500/20 to-transparent animate-scan"></div>
+        </div>
+      )}
+
       {/* Top Controls */}
-      <div className="absolute top-0 left-0 right-0 p-4 bg-gradient-to-b from-black/50 to-transparent">
+      <div className="absolute top-0 left-0 right-0 p-4 z-20 bg-gradient-to-b from-black/50 to-transparent">
         <div className="flex justify-between items-center">
           <button
             onClick={closeCamera}
@@ -194,37 +189,46 @@ function CameraApp() {
       </div>
 
       {/* Bottom Controls */}
-      <div className="absolute bottom-0 left-0 right-0 pb-24 p-8 bg-gradient-to-t from-black/50 to-transparent">
+      <div className="absolute bottom-0 left-0 right-0 pb-24 p-8 z-20 bg-gradient-to-t from-black/50 to-transparent">
         <div className="relative w-full flex justify-center">
-          {/* Capture Button - Centered */}
+          {/* Capture Button */}
           <button
             onClick={capturePhoto}
-            disabled={isCapturing}
+            disabled={isCapturing || isScanning}
             className={`w-20 h-20 rounded-full border-4 border-gray-300 transition-colors flex items-center justify-center ${
-              isCapturing
+              isCapturing || isScanning
                 ? "bg-gray-300 cursor-not-allowed"
-                : "bg-white hover:bg-gray-100"
+                : "bg-white hover:bg-gray-100 active:scale-95"
             }`}
           >
             <div
-              className={`w-16 h-16 rounded-full border-2 transition-colors ${
-                isCapturing
-                  ? "bg-gray-300 border-gray-400"
+              className={`w-16 h-16 rounded-full border-2 transition-transform duration-150 ${
+                isCapturing || isScanning
+                  ? "bg-gray-300 border-gray-400 scale-90"
                   : "bg-white border-gray-400"
               }`}
             ></div>
           </button>
 
-          {/* Flip Camera Button - Positioned between capture & right edge */}
+          {/* Flip Camera */}
           <button
             onClick={flipCamera}
             className="absolute right-12 bottom-1/2 translate-y-1/2 w-12 h-12 rounded-full bg-black/30 text-white hover:bg-black/50 transition-colors flex items-center justify-center"
-            style={{ right: "calc(5%)" }} // halfway between center and right edge
+            style={{ right: "calc(5%)" }}
           >
             <FlipCameraIosIcon className="text-2xl" />
           </button>
         </div>
       </div>
+
+      {/* Scanning Text */}
+      {isScanning && (
+        <div className="absolute inset-0 flex items-center justify-center z-30 pointer-events-none">
+          <p className="text-white text-lg font-semibold animate-pulse">
+            Scanning object, please wait…
+          </p>
+        </div>
+      )}
     </div>
   );
 }
