@@ -18,7 +18,7 @@ function BottomNavigation() {
   ]
 
   return (
-    <div className="fixed z-50 w-full h-16 bg-white border-t border-gray-200 bottom-0 left-0 shadow-lg">
+    <div className="fixed z-50 w-full h-16 bg-emerald-50/90 backdrop-blur-md border-t border-emerald-200/30 bottom-0 left-0 shadow-lg">
       <div className="grid h-full grid-cols-5 w-full px-4">
         {navItems.map(({ path, icon: Icon, label, isCenter }, index) => {
           const isActive = location.pathname === path
@@ -30,8 +30,8 @@ function BottomNavigation() {
                   onClick={() => navigate(path)}
                   className={`inline-flex items-center justify-center w-12 h-12 font-medium rounded-full group focus:ring-4 focus:outline-none transition-colors ${
                     isActive 
-                      ? 'bg-yellow-500 hover:bg-yellow-600 focus:ring-yellow-300' 
-                      : 'bg-blue-600 hover:bg-blue-700 focus:ring-blue-300'
+                      ? 'bg-emerald-600 hover:bg-emerald-700 focus:ring-emerald-300' 
+                      : 'bg-emerald-500 hover:bg-emerald-600 focus:ring-emerald-300'
                   }`}
                 >
                   <Icon className="w-6 h-6 text-white" />
@@ -45,12 +45,12 @@ function BottomNavigation() {
             <button
               key={path}
               onClick={() => navigate(path)}
-              className="inline-flex flex-col items-center justify-center px-2 hover:bg-gray-50 group transition-colors"
+              className="inline-flex flex-col items-center justify-center px-2 hover:bg-emerald-100/50 group transition-colors"
             >
               <Icon className={`w-5 h-5 mb-1 transition-colors ${
                 isActive 
-                  ? 'text-blue-600' 
-                  : 'text-gray-500 group-hover:text-blue-600'
+                  ? 'text-emerald-600' 
+                  : 'text-emerald-500/70 group-hover:text-emerald-600'
               }`} />
               <span className="sr-only">{label}</span>
             </button>
