@@ -1,30 +1,33 @@
 import React, { useEffect, useRef, useState } from "react";
 import axios from "axios";
-import DeleteIcon from "@mui/icons-material/Delete"; // 🗑️ Garbage can
-import FactoryIcon from "@mui/icons-material/Factory"; // 🏭 Facility
-import RoomIcon from "@mui/icons-material/Room"; // 📍 User location
 import grukBg from "../assets/GRUK_AI_LOGO-Photoroom.png";
+import LocationOnIcon from "@mui/icons-material/LocationOn";
+import DeleteIcon from "@mui/icons-material/Delete";
+import CloseIcon from "@mui/icons-material/Close";
+import SearchIcon from "@mui/icons-material/Search";
+import ReactDOMServer from "react-dom/server";
+
 
 function Map() {
   const mapRef = useRef(null);
   const [map, setMap] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [center, setCenter] = useState({ lat: 40.7128, lng: -74.006 });
+  const [center] = useState({ lat: 40.7128, lng: -74.006 });
   const [googleMapsLoaded, setGoogleMapsLoaded] = useState(false);
   const [userLocation, setUserLocation] = useState(null);
 
   // Markers
   const [garbageCanMarkers, setGarbageCanMarkers] = useState([]);
-  const [facilityMarkers, setFacilityMarkers] = useState([]);
   const [showingGarbageCans, setShowingGarbageCans] = useState(false);
-  const [showingFacilities, setShowingFacilities] = useState(false);
 
   // Dataset
   const [allGarbageCans, setAllGarbageCans] = useState(null);
   const [loadingAllCans, setLoadingAllCans] = useState(false);
   const [searchingGarbageCans, setSearchingGarbageCans] = useState(false);
-  const [searchingFacilities, setSearchingFacilities] = useState(false);
+
+  // ✅ Track popup with a ref (not state)
+  const activePopupRef = useRef(null);
 
   // ✅ Load Google Maps script once
   useEffect(() => {
@@ -65,6 +68,15 @@ function Map() {
         zoomControl: true,
         gestureHandling: "greedy",
       });
+
+      // ✅ Clicking on the map closes popup
+      mapInstance.addListener("click", () => {
+        if (activePopupRef.current) {
+          activePopupRef.current.close();
+          activePopupRef.current = null;
+        }
+      });
+
       setMap(mapInstance);
       setIsLoading(false);
     } catch (e) {
@@ -82,7 +94,8 @@ function Map() {
           const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
           setUserLocation(loc);
           map.setCenter(loc);
-          new window.google.maps.Marker({
+
+          const userMarker = new window.google.maps.Marker({
             position: loc,
             map,
             title: "You are here",
@@ -94,6 +107,19 @@ function Map() {
               strokeColor: "#fff",
               strokeWeight: 2,
             },
+          });
+
+          const userInfo = new window.google.maps.InfoWindow({
+            content: `<div style="font-size:14px; display:flex; align-items:center; gap:6px;">
+                        ${ReactDOMServer.renderToString(<LocationOnIcon style={{ color: "#4285F4" }} />)}
+                        <strong>You are here</strong>
+                      </div>`,
+          });
+
+          userMarker.addListener("click", () => {
+            if (activePopupRef.current) activePopupRef.current.close();
+            userInfo.open(map, userMarker);
+            activePopupRef.current = userInfo;
           });
         },
         () => setUserLocation(center),
@@ -146,7 +172,9 @@ function Map() {
       const nearby = all.filter((f) => {
         if (!f.geometry?.coordinates) return false;
         const [lng, lat] = f.geometry.coordinates;
-        return calculateDistance(userLocation.lat, userLocation.lng, lat, lng) <= 200;
+        return (
+          calculateDistance(userLocation.lat, userLocation.lng, lat, lng) <= 200
+        );
       });
       displayGarbageCanMarkers(nearby);
     } finally {
@@ -154,7 +182,7 @@ function Map() {
     }
   };
 
-  // ✅ Display markers
+  // ✅ Display markers + popup logic
   const displayGarbageCanMarkers = (garbageCans) => {
     garbageCanMarkers.forEach((m) => m.setMap(null));
     const newMarkers = garbageCans.map((feature) => {
@@ -170,6 +198,26 @@ function Map() {
           scaledSize: new window.google.maps.Size(28, 28),
         },
       });
+
+      const description =
+        feature.properties?.location_description || "No description available";
+
+      const infoWindow = new window.google.maps.InfoWindow({
+        content: `<div style="font-size:14px; line-height:1.4; display:flex; flex-direction:column; gap:4px;">
+                    <div style="display:flex; align-items:center; gap:6px;">
+                      ${ReactDOMServer.renderToString(<DeleteIcon style={{ color: "#2D5A27" }} />)}
+                      <strong>Trash Can</strong>
+                    </div>
+                    <span>${description}</span>
+                  </div>`,
+      });
+
+      marker.addListener("click", () => {
+        if (activePopupRef.current) activePopupRef.current.close();
+        infoWindow.open(map, marker);
+        activePopupRef.current = infoWindow;
+      });
+
       return marker;
     });
     setGarbageCanMarkers(newMarkers);
@@ -181,6 +229,8 @@ function Map() {
   const clearGarbageCanMarkers = () => {
     garbageCanMarkers.forEach((m) => m.setMap(null));
     setGarbageCanMarkers([]);
+    if (activePopupRef.current) activePopupRef.current.close();
+    activePopupRef.current = null;
     setShowingGarbageCans(false);
   };
 
@@ -192,25 +242,39 @@ function Map() {
       {map && !isLoading && (
         <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 flex flex-col gap-2 items-center">
           <button
-            onClick={showingGarbageCans ? clearGarbageCanMarkers : searchNearbyGarbageCans}
+            onClick={
+              showingGarbageCans ? clearGarbageCanMarkers : searchNearbyGarbageCans
+            }
             disabled={searchingGarbageCans || loadingAllCans}
-            className={`px-4 py-2 rounded-full text-white shadow-lg ${
+            className={`px-4 py-2 rounded-full text-white shadow-lg flex items-center gap-2 ${
               showingGarbageCans ? "bg-red-500" : "bg-green-600"
             }`}
           >
-            {searchingGarbageCans
-              ? "Searching..."
-              : showingGarbageCans
-              ? "❌ Hide Cans"
-              : "🗑️ Show Nearby Cans"}
+            {searchingGarbageCans ? (
+              <>
+                <SearchIcon /> Searching...
+              </>
+            ) : showingGarbageCans ? (
+              <>
+                <CloseIcon /> Hide Cans
+              </>
+            ) : (
+              <>
+                <DeleteIcon /> Show Nearby Cans
+              </>
+            )}
           </button>
         </div>
       )}
 
       {/* Loader */}
       {isLoading && (
-        <div className="absolute inset-0 flex items-center justify-center bg-gray-100 z-10">
-          <img src={grukBg} alt="Loading" className="animate-spin w-16 h-16 mb-4 rounded-full" />
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-100 z-10">
+          <img
+            src={grukBg}
+            alt="Loading"
+            className="animate-spin w-16 h-16 mb-4 rounded-full"
+          />
           <p>Loading map...</p>
         </div>
       )}
