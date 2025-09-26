@@ -52,19 +52,7 @@ const Button = ({
 }
 
 // Input Component
-const Input = ({ 
-  type = 'text', 
-  placeholder, 
-  value, 
-  onChange, 
-  className = '',
-  label,
-  error,
-  disabled = false,
-  required = false,
-  name,
-  ...props 
-}) => {
+const Input = ({ type='text', placeholder, value, onChange, className='', label, error, disabled=false, required=false, name, ...props }) => {
   const inputStyles = `
     w-full px-3 py-2 border rounded-lg transition-colors duration-200 bg-white/60
     focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent
@@ -72,13 +60,11 @@ const Input = ({
     ${error ? 'border-red-500 focus:ring-red-500' : 'border-emerald-200'}
     ${className}
   `
-
   return (
     <div className="w-full">
       {label && (
         <label className="block text-sm font-medium text-emerald-800 mb-1">
-          {label}
-          {required && <span className="text-red-500 ml-1">*</span>}
+          {label}{required && <span className="text-red-500 ml-1">*</span>}
         </label>
       )}
       <input
@@ -92,66 +78,52 @@ const Input = ({
         className={inputStyles}
         {...props}
       />
-      {error && (
-        <p className="mt-1 text-sm text-red-600">{error}</p>
-      )}
+      {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
     </div>
   )
 }
 
-// Login Form Component
-const LoginForm = ({ onLogin, onGoogleLogin }) => {
-  const [formData, setFormData] = useState({
-    email: '',
-    password: ''
-  })
+// Login / Registration Form
+const LoginForm = ({ onLogin }) => {
+  const [formData, setFormData] = useState({ email:'', password:'' })
   const [errors, setErrors] = useState({})
   const [isLoading, setIsLoading] = useState(false)
+  const [isRegister, setIsRegister] = useState(false) // toggle between login/register
 
-  const handleChange = (e) => {
+  const handleChange = e => {
     const { name, value } = e.target
     setFormData(prev => ({ ...prev, [name]: value }))
-    // Clear error when user starts typing
-    if (errors[name]) {
-      setErrors(prev => ({ ...prev, [name]: '' }))
-    }
+    if (errors[name]) setErrors(prev => ({ ...prev, [name]: '' }))
   }
 
   const validateForm = () => {
     const newErrors = {}
-    
-    if (!formData.email) {
-      newErrors.email = 'Email is required'
-    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-      newErrors.email = 'Email is invalid'
-    }
-    
-    if (!formData.password) {
-      newErrors.password = 'Password is required'
-    } else if (formData.password.length < 6) {
-      newErrors.password = 'Password must be at least 6 characters'
-    }
-    
+    if (!formData.email) newErrors.email = 'Email is required'
+    else if (!/\S+@\S+\.\S+/.test(formData.email)) newErrors.email = 'Email is invalid'
+    if (!formData.password) newErrors.password = 'Password is required'
+    else if (formData.password.length < 6) newErrors.password = 'Password must be at least 6 characters'
     return newErrors
   }
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async e => {
     e.preventDefault()
     const formErrors = validateForm()
-    
     if (Object.keys(formErrors).length > 0) {
       setErrors(formErrors)
       return
     }
-    
     setIsLoading(true)
-    
-    // Simulate login process - automatically succeed after a short delay
     try {
-      await new Promise(resolve => setTimeout(resolve, 800)) // Brief loading animation
-      await onLogin(formData)
-    } catch (error) {
-      setErrors({ general: 'Login failed. Please try again.' })
+      let userCredential
+      if (isRegister) {
+        userCredential = await createUserWithEmailAndPassword(auth, formData.email, formData.password)
+      } else {
+        userCredential = await signInWithEmailAndPassword(auth, formData.email, formData.password)
+      }
+      onLogin(userCredential.user)
+    } catch (err) {
+      console.error(err)
+      setErrors({ general: err.message })
     } finally {
       setIsLoading(false)
     }
@@ -184,7 +156,7 @@ const LoginForm = ({ onLogin, onGoogleLogin }) => {
           <img src={GrukLogo} alt="GrukAI Logo" className="w-16 h-16 mr-3" />
           <h1 className="text-4xl font-bold text-emerald-900">GrukAI</h1>
         </div>
-        <p className="text-emerald-700/80">Sign in to your account</p>
+        <p className="text-emerald-700/80">{isRegister ? 'Create a new account' : 'Sign in to your account'}</p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
@@ -194,46 +166,26 @@ const LoginForm = ({ onLogin, onGoogleLogin }) => {
           </div>
         )}
 
-        <Input
-          type="email"
-          name="email"
-          label="Email Address"
-          placeholder="Enter your email"
-          value={formData.email}
-          onChange={handleChange}
-          error={errors.email}
-          required
-        />
+        <Input type="email" name="email" label="Email Address" placeholder="Enter your email"
+          value={formData.email} onChange={handleChange} error={errors.email} required />
 
-        <Input
-          type="password"
-          name="password"
-          label="Password"
-          placeholder="Enter your password"
-          value={formData.password}
-          onChange={handleChange}
-          error={errors.password}
-          required
-        />
+        <Input type="password" name="password" label="Password" placeholder="Enter your password"
+          value={formData.password} onChange={handleChange} error={errors.password} required />
 
         <div className="flex items-center justify-between">
-          <label className="flex items-center">
-            <input type="checkbox" className="rounded border-emerald-300 text-emerald-600 focus:ring-emerald-500" />
-            <span className="ml-2 text-sm text-emerald-700">Remember me</span>
-          </label>
-          <a href="#" className="text-sm text-emerald-600 hover:text-emerald-800">
-            Forgot password?
-          </a>
+          {!isRegister && (
+            <>
+              <label className="flex items-center">
+                <input type="checkbox" className="rounded border-emerald-300 text-emerald-600 focus:ring-emerald-500" />
+                <span className="ml-2 text-sm text-emerald-700">Remember me</span>
+              </label>
+              <a href="#" className="text-sm text-emerald-600 hover:text-emerald-800">Forgot password?</a>
+            </>
+          )}
         </div>
 
-        <Button
-          type="submit"
-          variant="primary"
-          size="lg"
-          className="w-full"
-          disabled={isLoading}
-        >
-          {isLoading ? 'Signing in...' : 'Sign In'}
+        <Button type="submit" variant="primary" size="lg" className="w-full" disabled={isLoading}>
+          {isLoading ? (isRegister ? 'Creating account...' : 'Signing in...') : (isRegister ? 'Sign Up' : 'Sign In')}
         </Button>
       </form>
 
@@ -247,13 +199,7 @@ const LoginForm = ({ onLogin, onGoogleLogin }) => {
           </div>
         </div>
 
-        <Button
-          variant="google"
-          size="lg"
-          className="w-full mt-4"
-          onClick={handleGoogleLogin}
-          disabled={isLoading}
-        >
+        <Button variant="google" size="lg" className="w-full mt-4" onClick={handleGoogleLogin} disabled={isLoading}>
           <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">
             <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
             <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
@@ -266,36 +212,21 @@ const LoginForm = ({ onLogin, onGoogleLogin }) => {
 
       <div className="mt-6 text-center">
         <p className="text-sm text-emerald-700/80">
-          Don't have an account?{' '}
-          <a href="#" className="text-emerald-600 hover:text-emerald-800 font-medium">
-            Sign up
-          </a>
+          {isRegister ? "Already have an account?" : "Don't have an account?"}{' '}
+          <button type="button" onClick={() => setIsRegister(!isRegister)} className="text-emerald-600 hover:text-emerald-800 font-medium">
+            {isRegister ? "Sign in" : "Sign up"}
+          </button>
         </p>
       </div>
     </div>
   )
 }
 
-// Main Login Page Component
+// Main Login Page
 const LoginPage = () => {
-  const handleLogin = async (credentials) => {
-    // simulate API call - automatically succeed for now
-    console.log('Auto-login with:', credentials)
-    
-    await new Promise(resolve => setTimeout(resolve, 500))
-    
-    // Auto-redirect to dashboard
-    window.location.href = '/dashboard'
-  }
-
-  const handleGoogleLogin = async () => {
-    // auto-succeed Google login for now
-    console.log('Auto Google login')
-    
-    // Just add a small delay for UX and then redirect
-    await new Promise(resolve => setTimeout(resolve, 500))
-    
-    // Auto-redirect to dashboard
+  const handleLogin = (user) => {
+    console.log('Logged in user:', user)
+    // Redirect to dashboard after login
     window.location.href = '/dashboard'
   }
 
@@ -313,12 +244,9 @@ const LoginPage = () => {
         minHeight: '100vh'
       }}
     >
-      {/* Overlay for better text readability */}
       <div className="absolute inset-0 bg-black/10"></div>
-      
-      {/* Login Form */}
       <div className="relative z-10">
-        <LoginForm onLogin={handleLogin} onGoogleLogin={handleGoogleLogin} />
+        <LoginForm onLogin={handleLogin} />
       </div>
     </div>
   )
