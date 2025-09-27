@@ -39,7 +39,8 @@ function ScanResultTab({ result, onClose }) {
   }, [fullyExpandedPosition]);
 
   const handleDragStart = (event) => {
-    if (isFullyExpanded && !isPointerOverHandle(event)) {
+    // Only allow drag if it's from the handle area
+    if (!isPointerOverHandle(event)) {
       return false;
     }
     setIsDragging(true);
@@ -52,6 +53,7 @@ function ScanResultTab({ result, onClose }) {
     const dragDistance = info.offset.y;
     const velocity = info.velocity.y;
     
+    // If dragged down past dismiss threshold or with high downward velocity
     if (currentY > initialPosition + dismissThreshold || velocity > 1000) {
       animate(y, window.innerHeight, {
         type: "spring",
@@ -64,11 +66,16 @@ function ScanResultTab({ result, onClose }) {
     
     let targetY = initialPosition;
     
+    // If dragged up significantly, expand more
     if (dragDistance < -80 || velocity < -400) {
       targetY = fullyExpandedPosition;
-    } else if (dragDistance < -40) {
+    }
+    // If dragged up a bit, partial expand  
+    else if (dragDistance < -40) {
       targetY = window.innerHeight - (maxHeight * 0.7);
-    } else if (currentY < initialPosition - 50 && dragDistance > 30) {
+    }
+    // If currently expanded and dragged down a bit, collapse
+    else if (currentY < initialPosition - 50 && dragDistance > 30) {
       targetY = initialPosition;
     }
     
@@ -80,7 +87,16 @@ function ScanResultTab({ result, onClose }) {
   };
 
   const handleContentClick = (e) => {
+    // Always prevent event propagation on content clicks
     e.stopPropagation();
+  };
+
+  const handleBackdropClick = (e) => {
+    // Only close if not fully expanded, or if clicking outside the sheet area
+    const sheetElement = constraintsRef.current;
+    if (sheetElement && !sheetElement.contains(e.target)) {
+      onClose();
+    }
   };
 
   const handleDragHandleClick = (e) => {
@@ -89,13 +105,32 @@ function ScanResultTab({ result, onClose }) {
     const currentY = y.get();
     const isExpanded = currentY < initialPosition - 50;
     
-    const targetY = isExpanded ? initialPosition : fullyExpandedPosition;
-    
-    animate(y, targetY, {
-      type: "spring",
-      stiffness: 400,
-      damping: 40
-    });
+    if (isExpanded) {
+      // If expanded, either collapse or close based on current position
+      if (currentY <= fullyExpandedPosition + 50) {
+        // If fully expanded, just collapse to initial
+        animate(y, initialPosition, {
+          type: "spring",
+          stiffness: 400,
+          damping: 40
+        });
+      } else {
+        // If partially expanded, close
+        animate(y, window.innerHeight, {
+          type: "spring",
+          stiffness: 300,
+          damping: 30,
+          onComplete: onClose
+        });
+      }
+    } else {
+      // If collapsed, expand to full
+      animate(y, fullyExpandedPosition, {
+        type: "spring",
+        stiffness: 400,
+        damping: 40
+      });
+    }
   };
 
   const isPointerOverHandle = (event) => {
@@ -133,7 +168,7 @@ function ScanResultTab({ result, onClose }) {
     <>
       <motion.div 
         className="fixed inset-0 bg-black/30 z-40"
-        onClick={onClose}
+        onClick={handleBackdropClick}
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         style={{ opacity }}
@@ -158,16 +193,13 @@ function ScanResultTab({ result, onClose }) {
         dragElastic={{ top: 0.1, bottom: 0.3 }}
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
-        onPointerDown={(event) => {
-          if (isFullyExpanded && !isPointerOverHandle(event)) {
-            return;
-          }
-        }}
+        dragMomentum={false}
         style={{
           y,
           opacity,
           height: `${maxHeight}px`,
-          top: 0
+          top: 0,
+          touchAction: 'none' // Prevent default touch behaviors on the container
         }}
         className="fixed left-0 right-0 bg-white rounded-t-3xl shadow-2xl z-50 flex flex-col overflow-hidden"
         onClick={handleContentClick}
@@ -175,8 +207,9 @@ function ScanResultTab({ result, onClose }) {
         {/* Drag Handle */}
         <div 
           ref={dragHandleRef}
-          className="flex-shrink-0 w-full flex justify-center py-4 cursor-grab active:cursor-grabbing bg-gray-50/50"
+          className="flex-shrink-0 w-full flex justify-center py-4 cursor-grab active:cursor-grabbing bg-gray-50/50 relative z-10"
           onClick={handleDragHandleClick}
+          style={{ touchAction: 'manipulation' }}
         >
           <motion.div
             className="w-12 h-1.5 bg-gray-400 rounded-full hover:bg-gray-500 transition-colors"
@@ -185,7 +218,10 @@ function ScanResultTab({ result, onClose }) {
         </div>
 
         {/* Content Container */}
-        <div className="flex-1 overflow-hidden flex flex-col">
+        <div 
+          className="flex-1 overflow-hidden flex flex-col"
+          style={{ touchAction: 'auto' }} // Allow scrolling within content
+        >
           {/* Item Detail View */}
           {viewingItemDetail && currentItem ? (
             <>
@@ -195,6 +231,7 @@ function ScanResultTab({ result, onClose }) {
                   <button
                     onClick={handleBackToList}
                     className="p-2 -ml-2 rounded-full hover:bg-gray-100 transition-colors"
+                    style={{ touchAction: 'manipulation' }}
                   >
                     <svg className="w-5 h-5 text-gray-700" fill="currentColor" viewBox="0 0 20 20">
                       <path fillRule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd" />
@@ -215,7 +252,8 @@ function ScanResultTab({ result, onClose }) {
                 }`}
                 style={{
                   transition: 'overflow 0.3s ease-in-out',
-                  touchAction: 'auto'
+                  touchAction: 'pan-y', // Only allow vertical scrolling
+                  WebkitOverflowScrolling: 'touch' // Smooth scrolling on iOS
                 }}
               >
                 <div className="space-y-6">
@@ -286,10 +324,11 @@ function ScanResultTab({ result, onClose }) {
                   </div>
 
                   {/* Back Button */}
-                  <div className="flex justify-center pt-4 pb-12">
+                  <div className="flex justify-center pt-4 pb-16">
                     <button
                       onClick={handleBackToList}
                       className="px-8 py-3 rounded-xl bg-blue-600 text-white font-medium hover:bg-blue-700 transition-colors active:scale-95"
+                      style={{ touchAction: 'manipulation' }}
                     >
                       Back to Results
                     </button>
@@ -340,12 +379,13 @@ function ScanResultTab({ result, onClose }) {
                   <div 
                     className={`flex-1 px-6 ${
                       isFullyExpanded 
-                        ? 'overflow-y-auto pb-12' 
+                        ? 'overflow-y-auto pb-16' 
                         : 'overflow-hidden pb-6'
                     }`}
                     style={{
                       transition: 'overflow 0.3s ease-in-out',
-                      touchAction: 'auto'
+                      touchAction: 'pan-y', // Only allow vertical scrolling
+                      WebkitOverflowScrolling: 'touch' // Smooth scrolling on iOS
                     }}
                   >
                     <div className="space-y-3">
@@ -371,6 +411,7 @@ function ScanResultTab({ result, onClose }) {
                             onClick={() => handleItemClick(item)}
                             whileHover={{ scale: 1.02 }}
                             whileTap={{ scale: 0.98 }}
+                            style={{ touchAction: 'manipulation' }}
                           >
                             <div className="flex items-center gap-4">
                               <div className="relative flex-shrink-0">
@@ -407,7 +448,7 @@ function ScanResultTab({ result, onClose }) {
                       )}
 
                       {/* Done Button */}
-                      <div className="flex justify-center pt-6 pb-12">
+                      <div className="flex justify-center pt-6 pb-16">
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
@@ -415,6 +456,7 @@ function ScanResultTab({ result, onClose }) {
                           }}
                           className="px-8 py-3 rounded-xl bg-blue-600 text-white font-medium hover:bg-blue-700 transition-colors active:scale-95"
                           disabled={isLoading}
+                          style={{ touchAction: 'manipulation' }}
                         >
                           Done
                         </button>
@@ -423,7 +465,7 @@ function ScanResultTab({ result, onClose }) {
                   </div>
                 </>
               ) : (
-                // Single Item View (existing code)
+                // Single Item View
                 <>
                   <div className="flex-shrink-0 px-6 pb-4">
                     <div className="flex items-center space-x-4">
@@ -470,12 +512,13 @@ function ScanResultTab({ result, onClose }) {
                   <div 
                     className={`flex-1 px-6 ${
                       isFullyExpanded 
-                        ? 'overflow-y-auto pb-12' 
+                        ? 'overflow-y-auto pb-16' 
                         : 'overflow-hidden pb-6'
                     }`}
                     style={{
                       transition: 'overflow 0.3s ease-in-out',
-                      touchAction: 'auto'
+                      touchAction: 'pan-y', // Only allow vertical scrolling
+                      WebkitOverflowScrolling: 'touch' // Smooth scrolling on iOS
                     }}
                   >
                     <div className="space-y-6">
@@ -545,7 +588,7 @@ function ScanResultTab({ result, onClose }) {
                         )}
                       </div>
 
-                      <div className="flex justify-center pt-4 pb-12">
+                      <div className="flex justify-center pt-4 pb-16">
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
@@ -553,6 +596,7 @@ function ScanResultTab({ result, onClose }) {
                           }}
                           className="px-8 py-3 rounded-xl bg-blue-600 text-white font-medium hover:bg-blue-700 transition-colors active:scale-95"
                           disabled={isLoading}
+                          style={{ touchAction: 'manipulation' }}
                         >
                           Done
                         </button>
