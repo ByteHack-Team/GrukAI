@@ -24,7 +24,6 @@ If no waste item is found, return: {"object": "No waste found", "material": "N/A
 `;
 
 async function blobToBase64(blob) {
-  console.log("Converting blob to base64, size:", blob.size, "type:", blob.type);
   
   try {
     const arrayBuffer = await blob.arrayBuffer();
@@ -36,8 +35,6 @@ async function blobToBase64(blob) {
       binary += String.fromCharCode(bytes[i]);
     }
     const base64 = btoa(binary);
-    
-    console.log("Blob converted to base64, length:", base64.length);
     
     return {
       mimeType: blob.type || "image/jpeg",
@@ -114,12 +111,6 @@ function parseTextResponse(responseText) {
 export async function analyzeImageFrontend({ imageBlob, imageUrl, prompt }) {
   const finalPrompt = prompt ? `${SYSTEM_PROMPT}\n\nAdditional context: ${prompt}` : SYSTEM_PROMPT;
 
-  console.log("=== SENDING TO GEMINI ===");
-  console.log("Image Blob:", imageBlob ? `${imageBlob.size} bytes, ${imageBlob.type}` : "None");
-  console.log("Image URL:", imageUrl || "None");
-  console.log("Final Prompt:", finalPrompt);
-  console.log("========================");
-
   try {
     let imageData;
     
@@ -157,12 +148,6 @@ export async function analyzeImageFrontend({ imageBlob, imageUrl, prompt }) {
 
     console.log("Sending message with image data to Gemini...");
     const response = await gemini.invoke([message]);
-
-    console.log("=== RAW GEMINI RESPONSE ===");
-    console.log("Response object:", response);
-    console.log("Response content:", response.content);
-    console.log("===========================");
-
     const responseText = response.content;
 
     // Try to extract JSON from response
@@ -170,34 +155,18 @@ export async function analyzeImageFrontend({ imageBlob, imageUrl, prompt }) {
     try {
       // First try to parse the entire response as JSON
       detectedObject = JSON.parse(responseText);
-      console.log("=== PARSED JSON (full response) ===");
-      console.log("Parsed object:", detectedObject);
-      console.log("==================");
     } catch {
       // If that fails, try to find JSON within the response
       const jsonMatch = responseText.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         try {
-          detectedObject = JSON.parse(jsonMatch[0]);
-          console.log("=== PARSED JSON (extracted) ===");
-          console.log("Parsed object:", detectedObject);
-          console.log("==================");
         } catch (parseError) {
-          console.log("=== JSON PARSE FAILED - USING TEXT PARSER ===");
-          detectedObject = parseTextResponse(responseText);
-          console.log("Parsed from text:", detectedObject);
-          console.log("==========================================");
         }
       } else {
-        console.log("=== NO JSON FOUND - USING TEXT PARSER ===");
-        detectedObject = parseTextResponse(responseText);
-        console.log("Parsed from text:", detectedObject);
-        console.log("=====================================");
       }
     }
 
     if (!detectedObject || Object.keys(detectedObject).length === 0) {
-      console.log("=== NO OBJECT DETECTED ===");
       return "No garbage found";
     }
 
@@ -211,17 +180,9 @@ export async function analyzeImageFrontend({ imageBlob, imageUrl, prompt }) {
       description: detectedObject.description_info || detectedObject.description || "No description available"
     };
 
-    console.log("=== FINAL RESULT ===");
-    console.log("CO2 calculated:", co2);
-    console.log("Final result:", finalResult);
-    console.log("==================");
-
     return finalResult;
 
   } catch (error) {
-    console.error("=== ERROR IN AI ANALYSIS ===");
-    console.error("Error:", error);
-    console.error("============================");
     
     return {
       object: "Error",
