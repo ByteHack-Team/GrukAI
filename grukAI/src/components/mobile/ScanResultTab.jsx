@@ -8,6 +8,10 @@ function ScanResultTab({ result, onClose }) {
   const [isFullyExpanded, setIsFullyExpanded] = useState(false);
   const [viewingItemDetail, setViewingItemDetail] = useState(false);
   const [currentItem, setCurrentItem] = useState(null);
+  const [userLocation, setUserLocation] = useState(null);
+  const [nearbyGarbageCans, setNearbyGarbageCans] = useState([]);
+  const [loadingLocation, setLoadingLocation] = useState(false);
+  
   const y = useMotionValue(0);
   const constraintsRef = useRef(null);
   const dragHandleRef = useRef(null);
@@ -21,6 +25,87 @@ function ScanResultTab({ result, onClose }) {
   const fullyExpandedPosition = window.innerHeight - maxHeight;
   
   const opacity = useTransform(y, [initialPosition, initialPosition + dismissThreshold], [1, 0.5]);
+
+  // Get user location and nearby garbage cans
+  useEffect(() => {
+    if (!result || result.isLoading) return;
+    
+    const fetchLocationAndGarbageCans = async () => {
+      setLoadingLocation(true);
+      
+      try {
+        // Get user location
+        const position = await new Promise((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject, {
+            timeout: 10000,
+            enableHighAccuracy: true
+          });
+        });
+        
+        const userLoc = {
+          lat: position.coords.latitude,
+          lng: position.coords.longitude
+        };
+        setUserLocation(userLoc);
+
+        // Fetch nearby garbage cans
+        try {
+          const response = await fetch(
+            "https://data.cityofnewyork.us/resource/8znf-7b2c.geojson?$limit=5000"
+          );
+          const data = await response.json();
+          const features = data.features || [];
+          
+          // Filter nearby cans (within 500m)
+          const nearby = features.filter((f) => {
+            if (!f.geometry?.coordinates) return false;
+            const [lng, lat] = f.geometry.coordinates;
+            const distance = calculateDistance(userLoc.lat, userLoc.lng, lat, lng);
+            return distance <= 500; // 500m radius
+          });
+          
+          setNearbyGarbageCans(nearby);
+        } catch (error) {
+          console.error("Failed to fetch garbage cans:", error);
+        }
+        
+      } catch (error) {
+        console.error("Failed to get location:", error);
+        // Fallback to NYC center
+        setUserLocation({ lat: 40.7128, lng: -74.0060 });
+      } finally {
+        setLoadingLocation(false);
+      }
+    };
+
+    fetchLocationAndGarbageCans();
+  }, [result]);
+
+  // Calculate distance between two points (Haversine formula)
+  const calculateDistance = (lat1, lng1, lat2, lng2) => {
+    const R = 6371000; // Earth's radius in meters
+    const dLat = ((lat2 - lat1) * Math.PI) / 180;
+    const dLng = ((lng2 - lng1) * Math.PI) / 180;
+    const a =
+      Math.sin(dLat / 2) ** 2 +
+      Math.cos((lat1 * Math.PI) / 180) *
+        Math.cos((lat2 * Math.PI) / 180) *
+        Math.sin(dLng / 2) ** 2;
+    return 2 * R * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  };
+
+  // Handle navigation to map with nearby trash cans
+  const handleViewNearbyTrashCans = () => {
+    // Store the garbage cans and user location in sessionStorage to pass to the map page
+    if (nearbyGarbageCans.length > 0) {
+      sessionStorage.setItem('nearbyGarbageCans', JSON.stringify(nearbyGarbageCans));
+      sessionStorage.setItem('showGarbageCans', 'true');
+    }
+    if (userLocation) {
+      sessionStorage.setItem('userLocation', JSON.stringify(userLocation));
+    }
+    navigate('/map');
+  };
 
   useEffect(() => {
     document.body.style.overflow = 'hidden';
@@ -170,6 +255,55 @@ function ScanResultTab({ result, onClose }) {
   const isLoading = result.isLoading;
   const isMultipleItems = result.isMultipleItems;
 
+  // View Nearby Trash Cans Button Component
+  const ViewTrashCansButton = () => (
+    <div className="bg-blue-50 rounded-2xl p-4 border border-blue-200">
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <span className="text-lg">🗺️</span>
+          <span className="font-semibold text-blue-800">Disposal Locations</span>
+          {nearbyGarbageCans.length > 0 && !loadingLocation && (
+            <span className="bg-blue-100 text-blue-800 text-xs font-medium px-2 py-1 rounded-full">
+              {nearbyGarbageCans.length} nearby
+            </span>
+          )}
+        </div>
+      </div>
+      
+      <button
+        onClick={handleViewNearbyTrashCans}
+        disabled={loadingLocation}
+        className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-medium py-3 px-4 rounded-xl transition-colors active:scale-95 flex items-center justify-center gap-2"
+        style={{ touchAction: 'manipulation' }}
+      >
+        {loadingLocation ? (
+          <>
+            <CircularProgress size={20} sx={{ color: 'white' }} />
+            <span>Finding locations...</span>
+          </>
+        ) : (
+          <>
+            <span>🗑️</span>
+            <span>
+              {nearbyGarbageCans.length > 0 
+                ? `View ${nearbyGarbageCans.length} Nearby Trash Cans` 
+                : 'View Disposal Locations'
+              }
+            </span>
+          </>
+        )}
+      </button>
+      
+      <p className="text-xs text-blue-600 mt-2 text-center">
+        {loadingLocation ? "Getting your location..." :
+         nearbyGarbageCans.length > 0 
+          ? `${nearbyGarbageCans.length} disposal locations within 500m`
+          : userLocation ? "No nearby locations found" : "Location unavailable"
+        }
+      </p>
+    </div>
+  );
+
   return (
     <>
       <motion.div 
@@ -312,6 +446,9 @@ function ScanResultTab({ result, onClose }) {
                     </div>
                   </div>
 
+                  {/* View Nearby Trash Cans Button */}
+                  {!isLoading && <ViewTrashCansButton />}
+
                   {/* Disposal Instructions */}
                   <div className="bg-white rounded-2xl p-5 border-2 border-gray-100 shadow-sm">
                     <div className="flex items-center gap-3 mb-3">
@@ -385,6 +522,13 @@ function ScanResultTab({ result, onClose }) {
                       {isFullyExpanded ? "Tap items for details" : "Drag up to see all items"}
                     </p>
                   </div>
+
+                  {/* View Nearby Trash Cans Button for Multiple Items */}
+                  {!isLoading && (
+                    <div className="flex-shrink-0 px-6 pb-4">
+                      <ViewTrashCansButton />
+                    </div>
+                  )}
 
                   {/* Scrollable Items Grid */}
                   <div 
@@ -561,6 +705,9 @@ function ScanResultTab({ result, onClose }) {
                           )}
                         </div>
                       </div>
+
+                      {/* View Nearby Trash Cans Button for Single Item */}
+                      {!isLoading && <ViewTrashCansButton />}
 
                       <div className="bg-gray-50 rounded-2xl p-5 border border-gray-200">
                         <div className="flex items-center gap-2 mb-3">
