@@ -7,8 +7,6 @@ import FlashOffIcon from "@mui/icons-material/FlashOff";
 import ScanResultTab from "./ScanResultTab";
 import { auth, uploadScanImage } from "../../lib/firestore";
 import { analyzeImageFrontend } from "../../lib/langgraph";
-import { collection, addDoc, serverTimestamp } from "firebase/firestore";
-import { db } from "../../lib/firestore";
 
 function CameraApp() {
   const [stream, setStream] = useState(null);
@@ -21,13 +19,12 @@ function CameraApp() {
   const [scanResult, setScanResult] = useState(null);
 
   const videoRef = useRef(null);
-  const startingRef = useRef(false); // prevent double start (StrictMode)
+  const startingRef = useRef(false);
   const navigate = useNavigate();
 
   useEffect(() => {
     startCamera();
     return () => stopCamera();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [facingMode]);
 
   const startCamera = async () => {
@@ -45,14 +42,11 @@ function CameraApp() {
         audio: false,
       };
 
-      const mediaStream = await navigator.mediaDevices.getUserMedia(
-        constraints
-      );
+      const mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
       setStream(mediaStream);
 
       if (videoRef.current) {
         videoRef.current.srcObject = mediaStream;
-        // Safely call play, ignore AbortError
         const playPromise = videoRef.current.play();
         if (playPromise && typeof playPromise.then === "function") {
           playPromise.catch((err) => {
@@ -67,7 +61,6 @@ function CameraApp() {
       console.error("Camera error:", e);
       setError("Camera access denied or unavailable");
     } finally {
-      // allow restart if effect re-runs
       startingRef.current = false;
     }
   };
@@ -113,94 +106,110 @@ function CameraApp() {
       const ctx = canvas.getContext("2d");
       ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
 
+      // Create image data URL for immediate preview
+      const imageDataUrl = canvas.toDataURL("image/jpeg", 0.9);
+
       setUploadStatus("Converting image...");
       canvas.toBlob(
         async (blob) => {
           try {
             if (!blob) throw new Error("Blob conversion failed");
-            setUploadStatus("Uploading image...");
-            const { url, docId } = await uploadScanImage(user.uid, blob, {
-              source: "camera",
-              status: "raw",
-            });
-
-            const result = {
-              image_url: url,
-              firestore_id: docId,
-              object: "Unknown",
+            
+            // Show placeholder with immediate image preview
+            const placeholder = {
+              image_url: imageDataUrl, // Use data URL for immediate display
+              object: "Analyzing...",
               material: "Analyzing...",
-              disposal_instructions: "Pending AI analysis...",
-              description:
-                "Image uploaded. AI (Gemini) analysis will replace this.",
+              disposal_instructions: "Analyzing...",
+              description: "Running AI analysis...",
               points_earned: 0,
               co2value: "—",
+              isLoading: true // Add loading flag
             };
+            setScanResult(placeholder);
 
-            setUploadStatus("Uploaded.");
-            setScanResult(result);
+            // Run AI analysis and upload in parallel
+            setUploadStatus("Analyzing & uploading...");
+            
+            const prompt = "Identify the waste item and provide proper disposal instructions.";
+            
+            // Start both operations simultaneously
+            const [aiResult, uploadResult] = await Promise.all([
+              analyzeImageFrontend({ imageBlob: blob, prompt }),
+              uploadScanImage(user.uid, blob, { source: "camera", status: "raw" })
+            ]);
 
-            // --- AI Analysis Step ---
-            setUploadStatus("Analyzing image...");
-            try {
-              const aiResultRaw = await analyzeImageFrontend(url);
-              console.log(
-                "Raw AI result:",
-                aiResultRaw,
-                "Type:",
-                typeof aiResultRaw
-              );
-
-              let aiResultObj;
-              if (typeof aiResultRaw === "string") {
-                const cleaned = aiResultRaw
-                  .replace(/^```json\s*/, "")
-                  .replace(/```$/, "")
-                  .trim();
-                console.log("Cleaned AI result string:", cleaned);
-                if (cleaned === "No garbage found") {
-                  aiResultObj = null; // or handle as needed
-                } else {
-                  aiResultObj = JSON.parse(cleaned);
-                  console.log("✅ Parsed AI result object:", aiResultObj);
-                  console.log("Keys:", Object.keys(aiResultObj));
-                  console.log("Values:", Object.values(aiResultObj));
+            // Handle different response types from AI
+            let finalResult;
+            if (typeof aiResult === "string") {
+              if (aiResult === "No garbage found") {
+                finalResult = {
+                  image_url: uploadResult.url,
+                  object: "No garbage detected",
+                  material: "Unknown",
+                  disposal_instructions: "No waste item detected in image",
+                  description: "Try capturing a clearer image of waste item",
+                  points_earned: 0,
+                  co2value: "—",
+                  isLoading: false
+                };
+              } else {
+                // Try to parse string response
+                try {
+                  const cleaned = aiResult.replace(/^```json\s*/, "").replace(/```$/, "").trim();
+                  const parsed = JSON.parse(cleaned);
+                  finalResult = {
+                    image_url: uploadResult.url,
+                    object: parsed.object || "Unknown",
+                    material: parsed.material || "Unknown", 
+                    disposal_instructions: parsed.disposal_instructions || "No instructions",
+                    description: parsed.description || parsed.description_info || "No description",
+                    points_earned: parsed.points_earned ?? 0,
+                    co2value: parsed.co2value || parsed.co2 || "—",
+                    isLoading: false
+                  };
+                } catch {
+                  finalResult = {
+                    image_url: uploadResult.url,
+                    object: "Parse Error",
+                    material: "Unknown",
+                    disposal_instructions: "Failed to parse AI response",
+                    description: aiResult.slice(0, 200),
+                    points_earned: 0,
+                    co2value: "—",
+                    isLoading: false
+                  };
                 }
               }
-
-              // Prepare Firestore document
-              const responseDoc = {
-                image_url: aiResultObj.image_url || url,
-                object: aiResultObj.object || "Unknown",
-                material: aiResultObj.material || "Unknown",
-                disposal_instructions:
-                  aiResultObj.disposal_instructions || "No instructions",
-                points_earned: aiResultObj.points_earned ?? 0,
-                description_info:
-                  aiResultObj.description_info || "No description",
-                createdAt: serverTimestamp(),
-              };
-
-              console.log("Uploading AI result to Firestore:", responseDoc);
-              const docRef = await addDoc(
-                collection(db, "responses"),
-                responseDoc
-              );
-              console.log("✅ AI result uploaded! Doc ID:", docRef.id);
-
-              // Update local state
-              setScanResult(responseDoc);
-              setUploadStatus("Analysis complete.");
-            } catch (err) {
-              console.error("❌ AI analysis or Firestore upload failed:", err);
-              setError("AI analysis or upload failed");
-            }
-          } catch (err) {
-            console.error("Upload error:", err);
-            if (err?.code === "storage/unauthorized") {
-              setError("Unauthorized: check Storage rules / auth state.");
             } else {
-              setError("Upload failed");
+              // Object response
+              finalResult = {
+                image_url: uploadResult.url,
+                object: aiResult.object || "Unknown",
+                material: aiResult.material || "Unknown",
+                disposal_instructions: aiResult.disposal_instructions || "No instructions",
+                description: aiResult.description || aiResult.description_info || "No description",
+                points_earned: aiResult.points_earned ?? 0,
+                co2value: aiResult.co2value || aiResult.co2 || "—",
+                isLoading: false
+              };
             }
+
+            setScanResult(finalResult);
+            setUploadStatus("Analysis complete.");
+          } catch (err) {
+            console.error("Scan flow error:", err);
+            setError("Scan failed");
+            setScanResult({
+              image_url: imageDataUrl,
+              object: "Error",
+              material: "Unknown", 
+              disposal_instructions: "Analysis failed",
+              description: err.message,
+              points_earned: 0,
+              co2value: "—",
+              isLoading: false
+            });
           } finally {
             setIsCapturing(false);
             setIsScanning(false);
@@ -238,7 +247,7 @@ function CameraApp() {
 
       {isScanning && (
         <div className="absolute inset-0 z-10 overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-b from-transparent via-green-500/20 to-transparent animate-scan" />
+          <div className="absolute inset-0 bg-gradient-to-b from-transparent via-green-500/20 to-transparent animate-scan-slow" />
         </div>
       )}
 

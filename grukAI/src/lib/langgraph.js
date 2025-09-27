@@ -1,4 +1,5 @@
 import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
+import { HumanMessage } from "@langchain/core/messages";
 import { calculateCO2 } from "./utils";
 
 const gemini = new ChatGoogleGenerativeAI({
@@ -7,53 +8,229 @@ const gemini = new ChatGoogleGenerativeAI({
 });
 
 const SYSTEM_PROMPT = `
-You are a waste sorting assistant. Analyze the image and return **only the most prominent garbage object detected**.
-For this object, provide:
+You are a waste sorting assistant. Analyze the image and identify the most prominent waste/garbage item.
 
-- object: the common name of the item
-- material: the main material(s) it is made of
-- disposal_instructions: how it should be disposed or recycled
-- points_earned: reward points for proper disposal
-- description_info: a short factual note about this item's environmental impact (e.g., decomposition time, hazards, recyclability), without CO2 calculation.
-
-Do NOT calculate CO2; that will be done separately.
-The description_info will later be used to create a user-friendly description in the format:
-"This item can take ~450 years to break down "
-`;
-
-export async function analyzeImageFrontend(imageUrl) {
-  const prompt = `
-${SYSTEM_PROMPT}
-Analyze this image URL: ${imageUrl}
-Return the result as **valid JSON only** with this exact structure:
+CRITICAL: You must respond with ONLY valid JSON in this exact format:
 {
-  "image_url": "...",
-  "object": "...",
-  "material": "...",
-  "disposal_instructions": "...",
-  "points_earned": ...,
-  "description_info": "..."
+  "object": "name of the item",
+  "material": "main material type",
+  "disposal_instructions": "how to dispose properly",
+  "points_earned": 5,
+  "description_info": "brief environmental impact note"
 }
-If no garbage is found, return "No garbage found".
+
+Do NOT include any other text, explanations, or markdown. ONLY the JSON object.
+If no waste item is found, return: {"object": "No waste found", "material": "N/A", "disposal_instructions": "N/A", "points_earned": 0, "description_info": "No waste detected"}
 `;
 
-  const response = await gemini.call([{ role: "user", content: prompt }]);
-
-  let detectedObject;
+async function blobToBase64(blob) {
+  console.log("Converting blob to base64, size:", blob.size, "type:", blob.type);
+  
   try {
-    detectedObject = JSON.parse(response.text);
-  } catch {
-    return response.text;
+    const arrayBuffer = await blob.arrayBuffer();
+    const bytes = new Uint8Array(arrayBuffer);
+    
+    // Convert to base64
+    let binary = '';
+    for (let i = 0; i < bytes.length; i++) {
+      binary += String.fromCharCode(bytes[i]);
+    }
+    const base64 = btoa(binary);
+    
+    console.log("Blob converted to base64, length:", base64.length);
+    
+    return {
+      mimeType: blob.type || "image/jpeg",
+      data: base64
+    };
+  } catch (error) {
+    console.error("Error converting blob:", error);
+    throw error;
+  }
+}
+
+// Function to extract structured data from text response
+function parseTextResponse(responseText) {
+  // Try to find any JSON in the response first
+  const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+  if (jsonMatch) {
+    try {
+      return JSON.parse(jsonMatch[0]);
+    } catch (e) {
+      console.log("JSON found but parse failed:", e);
+    }
   }
 
-  if (!detectedObject || Object.keys(detectedObject).length === 0) return "No garbage found";
+  // If no JSON, extract key information from the text
+  console.log("Parsing structured data from text response");
+  
+  // Extract object name (look for quoted items or after "waste item")
+  let object = "Unknown item";
+  const objectMatch = responseText.match(/(?:\*\*|")([^"*]+(?:balloon|bottle|can|bag|container|cup|wrapper|package|box)[^"*]*)(?:\*\*|")/i) ||
+                     responseText.match(/waste item.*?(?:is|:|the)\s*(?:\*\*|")?([^"*\n.]+)(?:\*\*|")?/i) ||
+                     responseText.match(/identifiable.*?(?:is|:|the)\s*(?:\*\*|")?([^"*\n.]+)(?:\*\*|")?/i);
+  if (objectMatch) {
+    object = objectMatch[1].trim().replace(/^(the|a|an)\s+/i, '');
+  }
 
-  // calculate CO2 after parsing the AI response
-  const co2 = calculateCO2(detectedObject);
+  // Extract material type
+  let material = "Unknown";
+  const materialMatch = responseText.match(/(?:made|material|type).*?(?:of|from|:)\s*([^.\n,]+)/i) ||
+                       responseText.match(/(plastic|metal|aluminum|paper|cardboard|glass|organic|mylar|foil|nylon)/i);
+  if (materialMatch) {
+    material = materialMatch[1].trim();
+  }
 
+  // Extract disposal instructions (look for numbered lists or instruction sections)
+  let disposal = "Place in appropriate waste bin";
+  const disposalMatch = responseText.match(/(?:disposal|trash|recycling|bin)[\s\S]*?(?:should|place|put)[\s\S]*?(?:in|into)\s*([^.\n]+)/i) ||
+                       responseText.match(/(?:\*\*)?general\s+(?:waste|trash)(?:\*\*)?/i);
+  if (disposalMatch) {
+    disposal = disposalMatch[0].replace(/\*\*/g, '').trim();
+  } else if (responseText.toLowerCase().includes('not recyclable')) {
+    disposal = "Place in general trash bin - not recyclable";
+  }
+
+  // Generate points based on material type
+  let points = 3; // default
+  if (material.toLowerCase().includes('plastic') || material.toLowerCase().includes('mylar')) points = 4;
+  if (material.toLowerCase().includes('aluminum') || material.toLowerCase().includes('metal')) points = 6;
+  if (material.toLowerCase().includes('paper') || material.toLowerCase().includes('cardboard')) points = 5;
+  if (material.toLowerCase().includes('glass')) points = 7;
+
+  // Create description from key parts of the response
+  const description = responseText.slice(0, 150).replace(/\*\*/g, '').trim() + "...";
 
   return {
-    ...detectedObject,
-    co2
+    object: object,
+    material: material,
+    disposal_instructions: disposal,
+    points_earned: points,
+    description_info: description
   };
+}
+
+// Updated function to accept either blob or imageUrl
+export async function analyzeImageFrontend({ imageBlob, imageUrl, prompt }) {
+  const finalPrompt = prompt ? `${SYSTEM_PROMPT}\n\nAdditional context: ${prompt}` : SYSTEM_PROMPT;
+
+  console.log("=== SENDING TO GEMINI ===");
+  console.log("Image Blob:", imageBlob ? `${imageBlob.size} bytes, ${imageBlob.type}` : "None");
+  console.log("Image URL:", imageUrl || "None");
+  console.log("Final Prompt:", finalPrompt);
+  console.log("========================");
+
+  try {
+    let imageData;
+    
+    // Use blob if provided, otherwise try to fetch URL (fallback)
+    if (imageBlob) {
+      imageData = await blobToBase64(imageBlob);
+    } else if (imageUrl) {
+      // Fallback: try to fetch from URL (may still fail due to CORS)
+      console.warn("Using imageUrl fallback - may fail due to CORS");
+      const response = await fetch(imageUrl);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch image: ${response.status}`);
+      }
+      const blob = await response.blob();
+      imageData = await blobToBase64(blob);
+    } else {
+      throw new Error("Neither imageBlob nor imageUrl provided");
+    }
+    
+    // Create message with image data
+    const message = new HumanMessage({
+      content: [
+        {
+          type: "text",
+          text: finalPrompt,
+        },
+        {
+          type: "image_url",
+          image_url: {
+            url: `data:${imageData.mimeType};base64,${imageData.data}`,
+          },
+        },
+      ],
+    });
+
+    console.log("Sending message with image data to Gemini...");
+    const response = await gemini.invoke([message]);
+
+    console.log("=== RAW GEMINI RESPONSE ===");
+    console.log("Response object:", response);
+    console.log("Response content:", response.content);
+    console.log("===========================");
+
+    const responseText = response.content;
+
+    // Try to extract JSON from response
+    let detectedObject;
+    try {
+      // First try to parse the entire response as JSON
+      detectedObject = JSON.parse(responseText);
+      console.log("=== PARSED JSON (full response) ===");
+      console.log("Parsed object:", detectedObject);
+      console.log("==================");
+    } catch {
+      // If that fails, try to find JSON within the response
+      const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        try {
+          detectedObject = JSON.parse(jsonMatch[0]);
+          console.log("=== PARSED JSON (extracted) ===");
+          console.log("Parsed object:", detectedObject);
+          console.log("==================");
+        } catch (parseError) {
+          console.log("=== JSON PARSE FAILED - USING TEXT PARSER ===");
+          detectedObject = parseTextResponse(responseText);
+          console.log("Parsed from text:", detectedObject);
+          console.log("==========================================");
+        }
+      } else {
+        console.log("=== NO JSON FOUND - USING TEXT PARSER ===");
+        detectedObject = parseTextResponse(responseText);
+        console.log("Parsed from text:", detectedObject);
+        console.log("=====================================");
+      }
+    }
+
+    if (!detectedObject || Object.keys(detectedObject).length === 0) {
+      console.log("=== NO OBJECT DETECTED ===");
+      return "No garbage found";
+    }
+
+    // Calculate CO2 after parsing the AI response
+    const co2 = calculateCO2(detectedObject);
+
+    const finalResult = {
+      ...detectedObject,
+      image_url: imageUrl, // Add the original URL back if provided
+      co2value: co2,
+      description: detectedObject.description_info || detectedObject.description || "No description available"
+    };
+
+    console.log("=== FINAL RESULT ===");
+    console.log("CO2 calculated:", co2);
+    console.log("Final result:", finalResult);
+    console.log("==================");
+
+    return finalResult;
+
+  } catch (error) {
+    console.error("=== ERROR IN AI ANALYSIS ===");
+    console.error("Error:", error);
+    console.error("============================");
+    
+    return {
+      object: "Error",
+      material: "Unknown",
+      disposal_instructions: "Analysis failed due to error",
+      description: error.message,
+      points_earned: 0,
+      co2value: "Unknown",
+      image_url: imageUrl
+    };
+  }
 }

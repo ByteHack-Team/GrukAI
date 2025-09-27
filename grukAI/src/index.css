@@ -30,16 +30,18 @@
     height: 100%;
     width: 100%;
   }
-  @keyframes scan {
+  @keyframes scan-slow {
     0% {
       transform: translateY(-100%);
+    }
+    50% {
+      transform: translateY(0%);
     }
     100% {
       transform: translateY(100%);
     }
   }
-
-  .animate-scan {
-    animation: scan 2.5s linear infinite;
+  .animate-scan-slow {
+    animation: scan-slow 3s ease-in-out infinite;
   }
 }

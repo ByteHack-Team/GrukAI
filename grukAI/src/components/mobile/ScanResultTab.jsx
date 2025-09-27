@@ -1,8 +1,8 @@
 import { useState, useRef, useEffect } from "react";
 import { motion, useMotionValue, useTransform, animate } from "framer-motion";
+import { CircularProgress, Skeleton } from "@mui/material";
 
 function ScanResultTab({ result, onClose }) {
-  console.log("🎯 ScanResultTab rendered with result:", result);
   
   const [isDragging, setIsDragging] = useState(false);
   const [isFullyExpanded, setIsFullyExpanded] = useState(false);
@@ -23,11 +23,9 @@ function ScanResultTab({ result, onClose }) {
   const opacity = useTransform(y, [initialPosition, initialPosition + dismissThreshold], [1, 0.7]);
 
   useEffect(() => {
-    console.log("✅ ScanResultTab mounted!");
     
     document.body.style.overflow = 'hidden';
     return () => {
-      console.log("❌ ScanResultTab unmounted!");
       document.body.style.overflow = 'unset';
     };
   }, []);
@@ -43,17 +41,14 @@ function ScanResultTab({ result, onClose }) {
   }, [fullyExpandedPosition]);
 
   const handleDragStart = (event) => {
-    console.log("🔄 Drag started");
     // Only allow drag start if it's from the handle when fully expanded
     if (isFullyExpanded && !isPointerOverHandle(event)) {
-      console.log("🚫 Preventing drag - not from handle while expanded");
       return false;
     }
     setIsDragging(true);
   };
 
   const handleDragEnd = (_, info) => {
-    console.log("🛑 Drag ended", info);
     setIsDragging(false);
     
     const currentY = y.get();
@@ -62,7 +57,6 @@ function ScanResultTab({ result, onClose }) {
     
     // If dragged down past dismiss threshold or with high downward velocity
     if (currentY > initialPosition + dismissThreshold || velocity > 800) {
-      console.log("👋 Dismissing bottom sheet");
       animate(y, window.innerHeight, {
         type: "spring",
         stiffness: 300,
@@ -102,7 +96,6 @@ function ScanResultTab({ result, onClose }) {
 
   const handleDragHandleClick = (e) => {
     e.stopPropagation();
-    console.log("👆 Drag handle clicked");
     
     const currentY = y.get();
     const isExpanded = currentY < initialPosition - 50;
@@ -133,22 +126,12 @@ function ScanResultTab({ result, onClose }) {
     );
   };
 
-  // Check if drag should be allowed
-  const shouldAllowDrag = (event) => {
-    // If fully expanded, only allow drag from handle
-    if (isFullyExpanded) {
-      return isPointerOverHandle(event);
-    }
-    
-    // If not fully expanded, allow drag from anywhere
-    return true;
-  };
-
   // Simple fallback if Framer Motion is causing issues
   if (!result) {
-    console.log("⚠️ No result provided to ScanResultTab");
     return null;
   }
+
+  const isLoading = result.isLoading;
 
   return (
     <>
@@ -219,13 +202,21 @@ function ScanResultTab({ result, onClose }) {
                 alt="Scanned"
                 className="w-20 h-20 rounded-xl object-cover shadow-md"
                 onError={(e) => {
-                  console.log("🖼️ Image failed to load:", result.image_url);
                   e.target.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 80 80"><rect width="80" height="80" fill="%23f3f4f6"/><text x="40" y="45" text-anchor="middle" fill="%236b7280" font-size="12">No Image</text></svg>';
                 }}
               />
               <div className="flex-1">
-                <h2 className="text-xl font-bold text-gray-900">{result.object}</h2>
-                <p className="text-sm text-gray-600 mt-1">{result.material}</p>
+                {isLoading ? (
+                  <>
+                    <Skeleton variant="text" width="60%" height={32} />
+                    <Skeleton variant="text" width="40%" height={20} className="mt-1" />
+                  </>
+                ) : (
+                  <>
+                    <h2 className="text-xl font-bold text-gray-900">{result.object}</h2>
+                    <p className="text-sm text-gray-600 mt-1">{result.material}</p>
+                  </>
+                )}
                 <p className="text-xs text-blue-600 mt-2 font-medium">
                   {isFullyExpanded ? "Scroll to see more details" : "Drag to explore details"}
                 </p>
@@ -251,24 +242,57 @@ function ScanResultTab({ result, onClose }) {
               <div className="grid grid-cols-2 gap-4">
                 <div className="bg-green-50 rounded-lg p-3">
                   <span className="font-semibold text-green-700">CO₂ Impact:</span>
-                  <p className="text-green-900 font-bold">{result.co2value}</p>
+                  {isLoading ? (
+                    <div className="flex items-center justify-center py-2">
+                      <CircularProgress size={20} sx={{ color: '#059669' }} />
+                    </div>
+                  ) : (
+                    <p className="text-green-900 font-bold">{result.co2value}</p>
+                  )}
                 </div>
                 <div className="bg-blue-50 rounded-lg p-3">
                   <span className="font-semibold text-blue-700">Points Earned:</span>
-                  <p className="text-blue-900 font-bold">+{result.points_earned}</p>
+                  {isLoading ? (
+                    <div className="flex items-center justify-center py-2">
+                      <CircularProgress size={20} sx={{ color: '#2563eb' }} />
+                    </div>
+                  ) : (
+                    <p className="text-blue-900 font-bold">+{result.points_earned}</p>
+                  )}
                 </div>
               </div>
 
               {/* Disposal Instructions */}
               <div className="bg-gray-50 rounded-xl p-4">
                 <span className="font-semibold text-gray-700">Disposal Instructions:</span>
-                <p className="text-gray-900 mt-2">{result.disposal_instructions}</p>
+                {isLoading ? (
+                  <div className="mt-2">
+                    <Skeleton variant="text" width="100%" />
+                    <Skeleton variant="text" width="80%" />
+                    <Skeleton variant="text" width="60%" />
+                  </div>
+                ) : (
+                  <div className="mt-2 max-h-32 overflow-y-auto">
+                    <p className="text-gray-900 leading-relaxed">{result.disposal_instructions}</p>
+                  </div>
+                )}
               </div>
 
               {/* Description */}
               <div>
                 <span className="font-semibold text-gray-700">Description:</span>
-                <p className="text-gray-900 mt-2 leading-relaxed">{result.description}</p>
+                {isLoading ? (
+                  <div className="mt-2">
+                    <Skeleton variant="text" width="100%" />
+                    <Skeleton variant="text" width="90%" />
+                    <Skeleton variant="text" width="70%" />
+                    <Skeleton variant="text" width="85%" />
+                  </div>
+                ) : (
+                  <div className="mt-2 max-h-40 overflow-y-auto">
+                    <p className="text-gray-900 leading-relaxed">{result.description}</p>
+                  </div>
+                )}
               </div>
 
               {/* Done Button - With proper bottom spacing */}
@@ -279,6 +303,7 @@ function ScanResultTab({ result, onClose }) {
                     onClose();
                   }}
                   className="px-8 py-3 rounded-xl bg-blue-500 text-white font-semibold hover:bg-blue-600 transition-colors active:scale-95"
+                  disabled={isLoading}
                 >
                   Done
                 </button>
