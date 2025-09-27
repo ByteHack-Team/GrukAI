@@ -39,7 +39,12 @@ function ScanResultTab({ result, onClose }) {
   }, [fullyExpandedPosition]);
 
   const handleDragStart = (event) => {
-    // Only allow drag if it's from the handle area
+    // COMPLETELY disable drag if fully expanded
+    if (isFullyExpanded) {
+      return false;
+    }
+    
+    // Only allow drag if it's from the handle area when not fully expanded
     if (!isPointerOverHandle(event)) {
       return false;
     }
@@ -92,9 +97,9 @@ function ScanResultTab({ result, onClose }) {
   };
 
   const handleBackdropClick = (e) => {
-    // Only close if not fully expanded, or if clicking outside the sheet area
+    // Only close if clicking outside the sheet area AND not fully expanded
     const sheetElement = constraintsRef.current;
-    if (sheetElement && !sheetElement.contains(e.target)) {
+    if (sheetElement && !sheetElement.contains(e.target) && !isFullyExpanded) {
       onClose();
     }
   };
@@ -103,33 +108,34 @@ function ScanResultTab({ result, onClose }) {
     e.stopPropagation();
     
     const currentY = y.get();
-    const isExpanded = currentY < initialPosition - 50;
     
-    if (isExpanded) {
-      // If expanded, either collapse or close based on current position
-      if (currentY <= fullyExpandedPosition + 50) {
-        // If fully expanded, just collapse to initial
-        animate(y, initialPosition, {
-          type: "spring",
-          stiffness: 400,
-          damping: 40
-        });
-      } else {
-        // If partially expanded, close
+    if (isFullyExpanded) {
+      // If fully expanded, collapse to initial position
+      animate(y, initialPosition, {
+        type: "spring",
+        stiffness: 400,
+        damping: 40
+      });
+    } else {
+      // If not fully expanded, expand to full or close based on current state
+      const isExpanded = currentY < initialPosition - 50;
+      
+      if (isExpanded) {
+        // If partially expanded, close completely
         animate(y, window.innerHeight, {
           type: "spring",
           stiffness: 300,
           damping: 30,
           onComplete: onClose
         });
+      } else {
+        // If collapsed, expand to full
+        animate(y, fullyExpandedPosition, {
+          type: "spring",
+          stiffness: 400,
+          damping: 40
+        });
       }
-    } else {
-      // If collapsed, expand to full
-      animate(y, fullyExpandedPosition, {
-        type: "spring",
-        stiffness: 400,
-        damping: 40
-      });
     }
   };
 
@@ -185,7 +191,8 @@ function ScanResultTab({ result, onClose }) {
           damping: 30,
           delay: 0.1
         }}
-        drag="y"
+        // CONDITIONALLY enable drag based on expanded state
+        drag={!isFullyExpanded ? "y" : false}
         dragConstraints={{ 
           top: window.innerHeight - maxHeight, 
           bottom: window.innerHeight + 150
@@ -199,7 +206,7 @@ function ScanResultTab({ result, onClose }) {
           opacity,
           height: `${maxHeight}px`,
           top: 0,
-          touchAction: 'none' // Prevent default touch behaviors on the container
+          touchAction: isFullyExpanded ? 'auto' : 'none' // Allow touch when fully expanded
         }}
         className="fixed left-0 right-0 bg-white rounded-t-3xl shadow-2xl z-50 flex flex-col overflow-hidden"
         onClick={handleContentClick}
@@ -207,12 +214,16 @@ function ScanResultTab({ result, onClose }) {
         {/* Drag Handle */}
         <div 
           ref={dragHandleRef}
-          className="flex-shrink-0 w-full flex justify-center py-4 cursor-grab active:cursor-grabbing bg-gray-50/50 relative z-10"
+          className={`flex-shrink-0 w-full flex justify-center py-4 bg-gray-50/50 relative z-10 ${
+            isFullyExpanded ? 'cursor-pointer' : 'cursor-grab active:cursor-grabbing'
+          }`}
           onClick={handleDragHandleClick}
           style={{ touchAction: 'manipulation' }}
         >
           <motion.div
-            className="w-12 h-1.5 bg-gray-400 rounded-full hover:bg-gray-500 transition-colors"
+            className={`w-12 h-1.5 rounded-full transition-colors ${
+              isFullyExpanded ? 'bg-blue-400 hover:bg-blue-500' : 'bg-gray-400 hover:bg-gray-500'
+            }`}
             whileTap={{ scale: 1.1 }}
           />
         </div>
@@ -220,7 +231,7 @@ function ScanResultTab({ result, onClose }) {
         {/* Content Container */}
         <div 
           className="flex-1 overflow-hidden flex flex-col"
-          style={{ touchAction: 'auto' }} // Allow scrolling within content
+          style={{ touchAction: 'auto' }}
         >
           {/* Item Detail View */}
           {viewingItemDetail && currentItem ? (
@@ -252,8 +263,8 @@ function ScanResultTab({ result, onClose }) {
                 }`}
                 style={{
                   transition: 'overflow 0.3s ease-in-out',
-                  touchAction: 'pan-y', // Only allow vertical scrolling
-                  WebkitOverflowScrolling: 'touch' // Smooth scrolling on iOS
+                  touchAction: 'pan-y',
+                  WebkitOverflowScrolling: 'touch'
                 }}
               >
                 <div className="space-y-6">
@@ -384,8 +395,8 @@ function ScanResultTab({ result, onClose }) {
                     }`}
                     style={{
                       transition: 'overflow 0.3s ease-in-out',
-                      touchAction: 'pan-y', // Only allow vertical scrolling
-                      WebkitOverflowScrolling: 'touch' // Smooth scrolling on iOS
+                      touchAction: 'pan-y',
+                      WebkitOverflowScrolling: 'touch'
                     }}
                   >
                     <div className="space-y-3">
@@ -517,8 +528,8 @@ function ScanResultTab({ result, onClose }) {
                     }`}
                     style={{
                       transition: 'overflow 0.3s ease-in-out',
-                      touchAction: 'pan-y', // Only allow vertical scrolling
-                      WebkitOverflowScrolling: 'touch' // Smooth scrolling on iOS
+                      touchAction: 'pan-y',
+                      WebkitOverflowScrolling: 'touch'
                     }}
                   >
                     <div className="space-y-6">
