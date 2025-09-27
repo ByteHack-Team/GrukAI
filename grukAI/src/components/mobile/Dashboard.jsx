@@ -20,11 +20,109 @@ function Dashboard() {
   const [userLevel, setUserLevel] = useState(1)
   const [animateXP, setAnimateXP] = useState(false)
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
+  const [isScanHistoryModalOpen, setIsScanHistoryModalOpen] = useState(false)
+  const [selectedScanItem, setSelectedScanItem] = useState(null)
+  const [isScanResultModalOpen, setIsScanResultModalOpen] = useState(false)
   const [nearbyFacilities, setNearbyFacilities] = useState([])
   const [isLoadingLocation, setIsLoadingLocation] = useState(false)
   const [userLocation, setUserLocation] = useState(null)
   const [locationError, setLocationError] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [scanHistory, setScanHistory] = useState([])
+
+  // Mock scan history data
+  const mockScanHistory = [
+    {
+      id: 1,
+      imageUrl: '/path/to/plastic-bottle-image.jpg',
+      response: {
+        item: 'Plastic Water Bottle',
+        category: 'Plastic',
+        confidence: 95,
+        disposalInstructions: 'Remove cap and label, rinse container clean, then place in recycling bin. Check local recycling guidelines for specific requirements.',
+        description: 'This plastic item can be processed through recycling facilities to create new products and reduce environmental waste.',
+        points: 50
+      },
+      timestamp: new Date('2025-09-27T10:30:00'),
+      userId: 'user123',
+      scanResult: 'recyclable'
+    },
+    {
+      id: 2,
+      imageUrl: '/path/to/pizza-box-image.jpg',
+      response: {
+        item: 'Pizza Box',
+        category: 'Cardboard',
+        confidence: 88,
+        disposalInstructions: 'Remove any remaining food debris. Grease-stained portions should be torn off and placed in compost. Clean sections can be recycled.',
+        description: 'This cardboard item should be disposed of in regular trash as it cannot be processed through standard recycling methods.',
+        points: 0
+      },
+      timestamp: new Date('2025-09-26T15:45:00'),
+      userId: 'user123',
+      scanResult: 'non-recyclable'
+    },
+    {
+      id: 3,
+      imageUrl: '/path/to/aluminum-can-image.jpg',
+      response: {
+        item: 'Aluminum Can',
+        category: 'Metal',
+        confidence: 98,
+        disposalInstructions: 'Rinse clean to remove any residue, crush to save space, then place in metal recycling bin. No need to remove labels.',
+        description: 'This metal item can be processed through recycling facilities to create new products and reduce environmental waste.',
+        points: 75
+      },
+      timestamp: new Date('2025-09-25T09:15:00'),
+      userId: 'user123',
+      scanResult: 'recyclable'
+    },
+    {
+      id: 4,
+      imageUrl: '/path/to/glass-jar-image.jpg',
+      response: {
+        item: 'Glass Jar',
+        category: 'Glass',
+        confidence: 92,
+        disposalInstructions: 'Remove metal lid and rinse jar thoroughly. Labels can remain attached. Place in glass recycling container.',
+        description: 'This glass item can be processed through recycling facilities to create new products and reduce environmental waste.',
+        points: 60
+      },
+      timestamp: new Date('2025-09-24T14:20:00'),
+      userId: 'user123',
+      scanResult: 'recyclable'
+    },
+    {
+      id: 5,
+      imageUrl: '/path/to/styrofoam-container-image.jpg',
+      response: {
+        item: 'Styrofoam Container',
+        category: 'Polystyrene',
+        confidence: 97,
+        disposalInstructions: 'Clean container of food residue and place in regular trash bin. Consider reusing for storage or craft projects before disposal.',
+        description: 'This polystyrene item should be disposed of in regular trash as it cannot be processed through standard recycling methods.',
+        points: 0
+      },
+      timestamp: new Date('2025-09-23T12:10:00'),
+      userId: 'user123',
+      scanResult: 'non-recyclable'
+    },
+    {
+      id: 6,
+      imageUrl: '/path/to/newspaper-image.jpg',
+      response: {
+        item: 'Newspaper',
+        category: 'Paper',
+        confidence: 99,
+        disposalInstructions: 'Ensure paper is dry and free from food contamination. Remove any plastic bags or rubber bands, then bundle or place loose in paper recycling.',
+        description: 'This paper item can be processed through recycling facilities to create new products and reduce environmental waste.',
+        points: 40
+      },
+      timestamp: new Date('2025-09-22T08:30:00'),
+      userId: 'user123',
+      scanResult: 'recyclable'
+    }
+  ]
 
   // Fetch auth state + user profile
   useEffect(() => {
@@ -47,6 +145,7 @@ function Dashboard() {
             })
             setUserPoints(data.totalPoints || 0)
             setUserLevel(data.level || 1)
+            setScanHistory(mockScanHistory) // Load mock scan history
           }
         } catch (err) {
           console.error("Error fetching user data:", err)
@@ -236,6 +335,344 @@ function Dashboard() {
     return '🌱'
   }
 
+  // Helper functions for scan history
+  const formatDate = (date) => {
+    const now = new Date()
+    const scanDate = new Date(date)
+    const diffTime = Math.abs(now - scanDate)
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+
+    if (diffDays === 1) return 'Today'
+    if (diffDays === 2) return 'Yesterday'
+    if (diffDays <= 7) return `${diffDays - 1} days ago`
+    return scanDate.toLocaleDateString()
+  }
+
+  const getResultIcon = (result) => {
+    return result === 'recyclable' ? '♻️' : '🗑️'
+  }
+
+  const getResultColor = (result) => {
+    return result === 'recyclable' ? 'text-green-600' : 'text-red-600'
+  }
+
+  const getResultBg = (result) => {
+    return result === 'recyclable' ? 'bg-green-50/50 border-green-200/50' : 'bg-red-50/50 border-red-200/50'
+  }
+
+  const getCategoryIcon = (category) => {
+    const icons = {
+      'Plastic': '🥤',
+      'Cardboard': '📦',
+      'Metal': '🥫',
+      'Glass': '🍯',
+      'Paper': '📰',
+      'Polystyrene': '📦'
+    }
+    return icons[category] || '📋'
+  }
+
+  // Handle clicking on a scan item
+  const handleScanItemClick = (scan) => {
+    setSelectedScanItem(scan)
+    setIsScanResultModalOpen(true)
+  }
+
+  // Scan Result Modal Component (mimics camera app result)
+  const ScanResultModal = ({ isOpen, onClose, scanItem }) => {
+    if (!isOpen || !scanItem) return null
+
+    const isRecyclable = scanItem.scanResult === 'recyclable'
+
+    return (
+      <div className="fixed inset-0 bg-black/90 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="bg-white/95 backdrop-blur-md rounded-3xl w-full max-w-md max-h-[90vh] overflow-hidden shadow-2xl border border-emerald-200/30">
+          {/* Header */}
+          <div className="relative">
+            <div className={`p-6 text-center ${isRecyclable ? 'bg-gradient-to-br from-green-500 to-emerald-600' : 'bg-gradient-to-br from-red-500 to-red-600'} text-white`}>
+              <button
+                onClick={onClose}
+                className="absolute top-4 right-4 w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center transition-colors duration-200"
+              >
+                <span className="text-white">✕</span>
+              </button>
+              
+              <div className="text-6xl mb-4">{getCategoryIcon(scanItem.response.category)}</div>
+              <h2 className="text-2xl font-bold mb-2">{scanItem.response.item}</h2>
+              <p className="text-white/90 text-sm">{scanItem.response.category}</p>
+            </div>
+          </div>
+
+          <div className="p-6 space-y-6">
+            {/* Result Status */}
+            <div className="text-center">
+              <div className={`inline-flex items-center gap-3 px-6 py-3 rounded-2xl font-bold text-lg ${
+                isRecyclable 
+                  ? 'bg-green-100 text-green-800 border-2 border-green-200' 
+                  : 'bg-red-100 text-red-800 border-2 border-red-200'
+              }`}>
+                <span className="text-2xl">{getResultIcon(scanItem.scanResult)}</span>
+                <span>{isRecyclable ? 'RECYCLABLE' : 'NON-RECYCLABLE'}</span>
+              </div>
+            </div>
+
+            {/* Points Earned */}
+            <div className="flex items-center justify-center gap-3 bg-yellow-50/50 rounded-xl p-4 border border-yellow-200/30">
+              <span className="text-3xl">⭐</span>
+              <div className="text-center">
+                <p className="text-2xl font-bold text-yellow-700">
+                  {scanItem.response.points > 0 ? `+${scanItem.response.points}` : '0'}
+                </p>
+                <p className="text-yellow-600 text-sm">Points Earned</p>
+              </div>
+            </div>
+
+            {/* Scan Details */}
+            <div className="space-y-3">
+              <div className="flex justify-between items-center py-2 border-b border-emerald-200/30">
+                <span className="text-emerald-700 font-medium">Scanned On</span>
+                <span className="text-emerald-900 font-semibold">{formatDate(scanItem.timestamp)}</span>
+              </div>
+              <div className="flex justify-between items-center py-2 border-b border-emerald-200/30">
+                <span className="text-emerald-700 font-medium">Category</span>
+                <span className="text-emerald-900 font-semibold">{scanItem.response.category}</span>
+              </div>
+              <div className="flex justify-between items-center py-2">
+                <span className="text-emerald-700 font-medium">Material Type</span>
+                <span className="text-emerald-900 font-semibold">{scanItem.response.item}</span>
+              </div>
+            </div>
+
+            {/* Disposal Instructions */}
+            {scanItem.response.disposalInstructions && (
+              <div className="bg-blue-50/50 rounded-xl p-4 border border-blue-200/30">
+                <h4 className="font-bold text-blue-900 mb-2 flex items-center gap-2">
+                  <span>�</span>
+                  Disposal Instructions
+                </h4>
+                <p className="text-blue-800 text-sm leading-relaxed mb-3">{scanItem.response.disposalInstructions}</p>
+                <div className="bg-blue-100/50 rounded-lg p-3 border border-blue-200/30">
+                  <p className="text-blue-800 text-xs leading-relaxed">
+                    <strong>Description:</strong> {scanItem.response.description}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Action Buttons */}
+            <div className="flex gap-3">
+              <button
+                onClick={onClose}
+                className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-3 rounded-xl font-medium transition-all duration-300 transform hover:scale-105 flex items-center justify-center gap-2"
+              >
+                <span>✓</span>
+                Got it!
+              </button>
+              <button
+                onClick={() => {
+                  // Add share functionality here
+                  console.log('Sharing scan result:', scanItem)
+                }}
+                className="px-4 py-3 bg-emerald-100 hover:bg-emerald-200 text-emerald-800 rounded-xl font-medium transition-all duration-300 transform hover:scale-105 flex items-center justify-center gap-2"
+              >
+                <span>📤</span>
+                Share
+              </button>
+            </div>
+
+            {/* Environmental Impact */}
+            <div className={`rounded-xl p-4 border-2 ${
+              isRecyclable 
+                ? 'bg-green-50/50 border-green-200/50' 
+                : 'bg-orange-50/50 border-orange-200/50'
+            }`}>
+              <div className="text-center">
+                <div className="text-2xl mb-2">{isRecyclable ? '🌱' : '🌍'}</div>
+                <p className={`text-sm font-medium ${
+                  isRecyclable ? 'text-green-800' : 'text-orange-800'
+                }`}>
+                  {isRecyclable 
+                    ? 'Great job! Recycling this item helps reduce waste and protect our environment.'
+                    : 'This item cannot be recycled, but proper disposal still helps keep our environment clean.'
+                  }
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Scan History Modal Component
+  const ScanHistoryModal = ({ isOpen, onClose, scanHistory }) => {
+    const [filter, setFilter] = useState('all')
+    const [sortBy, setSortBy] = useState('newest')
+
+    if (!isOpen) return null
+
+    // Filter and sort scans
+    const getFilteredAndSortedScans = () => {
+      let filtered = scanHistory
+
+      // Apply filter
+      if (filter === 'recyclable') {
+        filtered = filtered.filter(scan => scan.result === 'recyclable')
+      } else if (filter === 'non-recyclable') {
+        filtered = filtered.filter(scan => scan.result === 'non-recyclable')
+      }
+
+      // Apply sort
+      switch (sortBy) {
+        case 'oldest':
+          filtered = [...filtered].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp))
+          break
+        case 'points':
+          filtered = [...filtered].sort((a, b) => b.points - a.points)
+          break
+        case 'newest':
+        default:
+          filtered = [...filtered].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+          break
+      }
+
+      return filtered
+    }
+
+    const filteredScans = getFilteredAndSortedScans()
+    const totalScans = scanHistory.length
+    const recyclableScans = scanHistory.filter(scan => scan.result === 'recyclable').length
+    const totalPointsEarned = scanHistory.reduce((sum, scan) => sum + scan.points, 0)
+
+    return (
+      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="bg-white/95 backdrop-blur-md rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden shadow-2xl border border-emerald-200/30">
+          {/* Header */}
+          <div className="flex items-center justify-between p-6 border-b border-emerald-200/30">
+            <h2 className="text-xl font-bold text-emerald-900 flex items-center gap-2">
+              <span>📸</span>
+              Complete Scan History
+            </h2>
+            <button
+              onClick={onClose}
+              className="w-8 h-8 rounded-full bg-emerald-100 hover:bg-emerald-200 flex items-center justify-center transition-colors duration-200"
+            >
+              <span className="text-emerald-700">✕</span>
+            </button>
+          </div>
+
+          <div className="overflow-y-auto max-h-[75vh]">
+            {/* Stats Section */}
+            <div className="p-6 pb-4">
+              <div className="grid grid-cols-3 gap-4 mb-6">
+                <div className="bg-emerald-50/50 rounded-xl p-4 text-center border border-emerald-200/30">
+                  <div className="text-2xl mb-2">📊</div>
+                  <p className="text-xl font-bold text-emerald-900">{totalScans}</p>
+                  <p className="text-sm text-emerald-700">Total Scans</p>
+                </div>
+                <div className="bg-green-50/50 rounded-xl p-4 text-center border border-green-200/30">
+                  <div className="text-2xl mb-2">♻️</div>
+                  <p className="text-xl font-bold text-green-600">{recyclableScans}</p>
+                  <p className="text-sm text-emerald-700">Recyclable</p>
+                </div>
+                <div className="bg-yellow-50/50 rounded-xl p-4 text-center border border-yellow-200/30">
+                  <div className="text-2xl mb-2">⭐</div>
+                  <p className="text-xl font-bold text-yellow-600">{totalPointsEarned}</p>
+                  <p className="text-sm text-emerald-700">Points Earned</p>
+                </div>
+              </div>
+
+              {/* Filter and Sort */}
+              <div className="flex gap-4 mb-4">
+                <select
+                  value={filter}
+                  onChange={(e) => setFilter(e.target.value)}
+                  className="flex-1 px-3 py-2 rounded-xl border border-emerald-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 bg-white/80 text-emerald-900 text-sm"
+                >
+                  <option value="all">All Results</option>
+                  <option value="recyclable">Recyclable Only</option>
+                  <option value="non-recyclable">Non-Recyclable Only</option>
+                </select>
+                
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value)}
+                  className="flex-1 px-3 py-2 rounded-xl border border-emerald-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 bg-white/80 text-emerald-900 text-sm"
+                >
+                  <option value="newest">Newest First</option>
+                  <option value="oldest">Oldest First</option>
+                  <option value="points">Highest Points</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Scan List */}
+            <div className="px-6 pb-6 space-y-3">
+              {filteredScans.map((scan) => (
+                <div
+                  key={scan.id}
+                  onClick={() => handleScanItemClick(scan)}
+                  className={`rounded-xl p-4 border transition-all duration-300 cursor-pointer transform hover:scale-[1.02] hover:shadow-md ${getResultBg(scan.result)}`}
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="text-2xl">{getCategoryIcon(scan.category)}</div>
+                    
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between mb-2">
+                        <div>
+                          <h4 className="font-bold text-emerald-900">{scan.item}</h4>
+                          <p className="text-emerald-700/80 text-sm">{scan.category}</p>
+                        </div>
+                        <div className="text-right">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-xl">{getResultIcon(scan.result)}</span>
+                            <span className={`font-bold text-sm ${getResultColor(scan.result)}`}>
+                              {scan.result === 'recyclable' ? 'Recyclable' : 'Non-Recyclable'}
+                            </span>
+                          </div>
+                          <p className="text-xs text-emerald-600">{scan.confidence}% confident</p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between mb-3">
+                        <span className="text-yellow-600 font-bold text-sm">
+                          {scan.points > 0 ? `+${scan.points}` : scan.points} points
+                        </span>
+                        <span className="text-emerald-600/70 text-xs">
+                          {formatDate(scan.timestamp)}
+                        </span>
+                      </div>
+
+                      {scan.tips && (
+                        <div className="bg-emerald-50/50 rounded-lg p-3 border border-emerald-200/50">
+                          <p className="text-emerald-800 text-sm flex items-start gap-2">
+                            <span>💡</span>
+                            <span>{scan.tips}</span>
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+
+              {/* Summary */}
+              <div className="text-center pt-4 border-t border-emerald-200/30">
+                <p className="text-emerald-700">
+                  Showing <span className="font-bold text-emerald-900">{filteredScans.length}</span> of{' '}
+                  <span className="font-bold text-emerald-900">{totalScans}</span> scans
+                </p>
+                <p className="text-emerald-600/80 text-sm mt-1">
+                  Keep scanning to earn more points and help the environment! 🌱
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   const openInGoogleMaps = (facility) => {
     const query = encodeURIComponent(`${facility.name}, ${facility.address}`)
     const url = `https://www.google.com/maps/search/?api=1&query=${query}`
@@ -408,7 +845,89 @@ function Dashboard() {
           </div>
         </div>
 
-        {/* Nearby Facilities Section (kept static for now) */}
+        {/* Recent Scan History Section */}
+        <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 border border-emerald-200/30 shadow-sm">
+          <div 
+            className="flex items-center justify-between mb-4 cursor-pointer hover:bg-emerald-50/30 -m-2 p-2 rounded-xl transition-colors duration-200"
+            onClick={() => setIsScanHistoryModalOpen(true)}
+          >
+            <h3 className="text-lg font-bold text-emerald-900">Latest Scans</h3>
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-emerald-600">View All</span>
+              <div className="text-2xl">📸</div>
+            </div>
+          </div>
+
+          {scanHistory.length === 0 ? (
+            <div className="text-center py-8">
+              <div className="text-6xl mb-4">📸</div>
+              <h4 className="text-lg font-bold text-emerald-900 mb-2">No Scans Yet</h4>
+              <p className="text-emerald-700">Start scanning items to see your history here!</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {scanHistory.slice(0, 3).map((scan) => (
+                <div
+                  key={scan.id}
+                  onClick={() => handleScanItemClick(scan)}
+                  className={`rounded-xl p-4 border transition-all duration-300 hover:shadow-md cursor-pointer transform hover:scale-[1.02] ${getResultBg(scan.scanResult)}`}
+                >
+                  <div className="flex items-start gap-3">
+                    {/* Category Icon */}
+                    <div className="text-2xl">{getCategoryIcon(scan.response.category)}</div>
+                    
+                    {/* Main Content */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between mb-2">
+                        <div>
+                          <h4 className="font-bold text-emerald-900">{scan.response.item}</h4>
+                          <p className="text-emerald-700/80 text-sm">{scan.response.category}</p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xl">{getResultIcon(scan.scanResult)}</span>
+                          <span className={`font-bold text-sm ${getResultColor(scan.scanResult)}`}>
+                            {scan.scanResult === 'recyclable' ? 'Recyclable' : 'Non-Recyclable'}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Points and Date */}
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-yellow-600 font-bold text-sm">
+                          {scan.response.points > 0 ? `+${scan.response.points}` : scan.response.points} points
+                        </span>
+                        <span className="text-emerald-600/70 text-xs">
+                          {formatDate(scan.timestamp)}
+                        </span>
+                      </div>
+
+                      {/* Tips */}
+                      {scan.tips && (
+                        <div className="bg-emerald-50/50 rounded-lg p-2 border border-emerald-200/50">
+                          <p className="text-emerald-800 text-xs flex items-start gap-2">
+                            <span>💡</span>
+                            <span>{scan.tips}</span>
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+              
+              {/* View All Button */}
+              <button 
+                onClick={() => setIsScanHistoryModalOpen(true)}
+                className="w-full mt-4 bg-emerald-100 hover:bg-emerald-200 text-emerald-800 px-4 py-3 rounded-xl font-medium transition-all duration-300 transform hover:scale-105 flex items-center justify-center gap-2"
+              >
+                <span>📋</span>
+                View All Scan History
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Nearby Facilities Section */}
         <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 border border-emerald-200/30 shadow-sm">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-bold text-emerald-900">Nearby Facilities</h3>
@@ -493,6 +1012,20 @@ function Dashboard() {
         userData={userData}
         onUpdateUserData={handleUpdateUserData}
         onLogout={handleLogout}
+      />
+
+      {/* Scan History Modal */}
+      <ScanHistoryModal
+        isOpen={isScanHistoryModalOpen}
+        onClose={() => setIsScanHistoryModalOpen(false)}
+        scanHistory={scanHistory}
+      />
+
+      {/* Scan Result Modal */}
+      <ScanResultModal
+        isOpen={isScanResultModalOpen}
+        onClose={() => setIsScanResultModalOpen(false)}
+        scanItem={selectedScanItem}
       />
     </div>
   )
