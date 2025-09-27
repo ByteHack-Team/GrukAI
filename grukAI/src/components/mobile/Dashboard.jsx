@@ -4,6 +4,44 @@ import { doc, getDoc } from "firebase/firestore"
 import { auth, db } from "../../lib/firestore" // adjust if your firebase export path differs
 import Setting from './Setting'
 
+// Add custom CSS animations for the scan list
+const styles = `
+  @keyframes slideInUp {
+    from {
+      opacity: 0;
+      transform: translateY(30px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+  
+  .animate-slideInUp {
+    animation: slideInUp 0.4s ease-out;
+  }
+  
+  .animate-fadeIn {
+    animation: fadeIn 0.3s ease-in-out;
+  }
+`;
+
+// Inject styles into head
+if (typeof document !== 'undefined') {
+  const styleElement = document.createElement('style');
+  styleElement.textContent = styles;
+  document.head.appendChild(styleElement);
+}
+
 function Dashboard() {
   const [user, setUser] = useState(null)
   const [userData, setUserData] = useState({
@@ -856,7 +894,7 @@ function Dashboard() {
                 className="flex items-center gap-2 text-emerald-600 hover:text-emerald-800 transition-colors duration-200"
               >
                 <span className="text-sm font-medium">
-                  {isScanSectionExpanded ? 'Show Less' : 'Show All'}
+                  {isScanSectionExpanded ? 'Latest Only' : 'View All'}
                 </span>
                 <div className={`transform transition-transform duration-300 text-lg ${
                   isScanSectionExpanded ? 'rotate-180' : ''
@@ -882,12 +920,73 @@ function Dashboard() {
             </div>
           ) : (
             <div className="space-y-3">
-              {scanHistory.slice(0, isScanSectionExpanded ? scanHistory.length : 3).map((scan) => (
-                <div
-                  key={scan.id}
-                  onClick={() => handleScanItemClick(scan)}
-                  className={`rounded-xl p-4 border transition-all duration-300 hover:shadow-md cursor-pointer transform hover:scale-[1.02] ${getResultBg(scan.scanResult)}`}
-                >
+              {/* Always show the latest scan */}
+              <div
+                key={scanHistory[0].id}
+                onClick={() => handleScanItemClick(scanHistory[0])}
+                className={`rounded-xl p-4 border transition-all duration-300 hover:shadow-md cursor-pointer transform hover:scale-[1.02] ${getResultBg(scanHistory[0].scanResult)}`}
+              >
+                <div className="flex items-start gap-3">
+                  {/* Category Icon */}
+                  <div className="text-2xl">{getCategoryIcon(scanHistory[0].response.category)}</div>
+                  
+                  {/* Main Content */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-start justify-between mb-2">
+                      <div>
+                        <h4 className="font-bold text-emerald-900">{scanHistory[0].response.item}</h4>
+                        <p className="text-emerald-700/80 text-sm">{scanHistory[0].response.category}</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xl">{getResultIcon(scanHistory[0].scanResult)}</span>
+                        <span className={`font-bold text-sm ${getResultColor(scanHistory[0].scanResult)}`}>
+                          {scanHistory[0].scanResult === 'recyclable' ? 'Recyclable' : 'Non-Recyclable'}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Points and Date */}
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-yellow-600 font-bold text-sm">
+                        {scanHistory[0].response.points > 0 ? `+${scanHistory[0].response.points}` : scanHistory[0].response.points} points
+                      </span>
+                      <span className="text-emerald-600/70 text-xs">
+                        {formatDate(scanHistory[0].timestamp)}
+                      </span>
+                    </div>
+
+                    {/* Tips */}
+                    {scanHistory[0].response.disposalInstructions && (
+                      <div className="bg-emerald-50/50 rounded-lg p-2 border border-emerald-200/50">
+                        <p className="text-emerald-800 text-xs flex items-start gap-2">
+                          <span>💡</span>
+                          <span>{scanHistory[0].response.disposalInstructions}</span>
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Animated additional scans container */}
+              <div 
+                className={`transition-all duration-500 ease-in-out overflow-hidden ${
+                  isScanSectionExpanded 
+                    ? 'max-h-[2000px] opacity-100' 
+                    : 'max-h-0 opacity-0'
+                }`}
+              >
+                <div className="space-y-3 pt-3">
+                  {scanHistory.slice(1).map((scan, index) => (
+                    <div
+                      key={scan.id}
+                      onClick={() => handleScanItemClick(scan)}
+                      className={`rounded-xl p-4 border transition-all duration-300 hover:shadow-md cursor-pointer transform hover:scale-[1.02] animate-slideInUp ${getResultBg(scan.scanResult)}`}
+                      style={{
+                        animationDelay: `${index * 0.1}s`,
+                        animationFillMode: 'both'
+                      }}
+                    >
                   <div className="flex items-start gap-3">
                     {/* Category Icon */}
                     <div className="text-2xl">{getCategoryIcon(scan.response.category)}</div>
@@ -930,9 +1029,11 @@ function Dashboard() {
                   </div>
                 </div>
               ))}
+                </div>
+              </div>
               
-              {/* View All Button - only show when not expanded and there are more than 3 items */}
-              {!isScanSectionExpanded && scanHistory.length > 3 && (
+              {/* View All Button - only show when not expanded and there are more than 1 items */}
+              {!isScanSectionExpanded && scanHistory.length > 1 && (
                 <button 
                   onClick={() => setIsScanHistoryModalOpen(true)}
                   className="w-full mt-4 bg-emerald-100 hover:bg-emerald-200 text-emerald-800 px-4 py-3 rounded-xl font-medium transition-all duration-300 transform hover:scale-105 flex items-center justify-center gap-2"
@@ -943,8 +1044,8 @@ function Dashboard() {
               )}
               
               {/* Summary when expanded */}
-              {isScanSectionExpanded && scanHistory.length > 3 && (
-                <div className="text-center pt-4 border-t border-emerald-200/30 mt-4">
+              {isScanSectionExpanded && scanHistory.length > 1 && (
+                <div className="text-center pt-4 border-t border-emerald-200/30 mt-4 transition-all duration-300 animate-fadeIn">
                   <p className="text-emerald-700 text-sm">
                     Showing all <span className="font-bold text-emerald-900">{scanHistory.length}</span> scans
                   </p>
