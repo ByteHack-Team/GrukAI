@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useLocation, useNavigate } from "react-router-dom";
 import { ArrowBack, LocationOn, CalendarToday, Visibility } from "@mui/icons-material";
-import { checkImageAccessibility, createCroppedImageCSS } from "../../lib/firestore";
+import { checkImageAccessibility, createCroppedImageCSS, createImageCropStyle } from "../../lib/firestore";
 
 function ScanDetail() {
   const location = useLocation();
@@ -18,7 +18,6 @@ function ScanDetail() {
     }
   }, [scan]);
 
-  // ✅ SIMPLIFIED: Just check if image is accessible
   const checkImageAccess = async () => {
     try {
       console.log('Checking image accessibility:', scan.imageUrl);
@@ -40,8 +39,9 @@ function ScanDetail() {
     const itemWithImage = {
       ...item,
       index,
-      // ✅ Create CSS-based crop instead of blob
+      // ✅ Try both cropping methods
       croppedImageStyle: item.bbox ? createCroppedImageCSS(scan.imageUrl, item.bbox) : null,
+      croppedImageProps: item.bbox ? createImageCropStyle(scan.imageUrl, item.bbox) : null,
       object: item.object,
       material: item.material,
       disposalInstructions: item.disposalInstructions || item.disposal_instructions,
@@ -142,8 +142,17 @@ function ScanDetail() {
           >
             {/* Item Image */}
             <div className="relative">
-              {selectedItem.croppedImageStyle && imageAccessible ? (
-                // ✅ CSS-based cropped image
+              {selectedItem.croppedImageProps && imageAccessible ? (
+                // ✅ Method 1: Use img element with object-fit and transform
+                <div className="w-full h-64 rounded-2xl overflow-hidden shadow-lg border border-gray-200">
+                  <img
+                    {...selectedItem.croppedImageProps}
+                    alt={selectedItem.object}
+                    className="w-full h-full"
+                  />
+                </div>
+              ) : selectedItem.croppedImageStyle && imageAccessible ? (
+                // ✅ Method 2: Use CSS background with clip-path
                 <div
                   className="w-full h-64 rounded-2xl shadow-lg border border-gray-200"
                   style={selectedItem.croppedImageStyle}
@@ -164,7 +173,7 @@ function ScanDetail() {
               </div>
             </div>
 
-            {/* Item Info */}
+            {/* Item Info - Rest remains the same */}
             <div className="bg-gray-50 rounded-2xl p-5">
               <h2 className="text-2xl font-bold text-gray-900 mb-2">{selectedItem.object}</h2>
               <div className="flex items-center gap-2 mb-4">
@@ -222,7 +231,7 @@ function ScanDetail() {
     );
   }
 
-  // Main Scan Detail View
+  // Main Scan Detail View - Update the thumbnails section
   const formattedItems = formatStoredItems(scan.items);
 
   return (
@@ -339,60 +348,67 @@ function ScanDetail() {
               )}
 
               <div className="space-y-3">
-                {formattedItems.map((item, index) => (
-                  <motion.div
-                    key={index}
-                    className="bg-white border-2 border-gray-100 rounded-xl p-4 cursor-pointer hover:border-blue-300 hover:bg-blue-50/30 transition-all duration-200"
-                    onClick={() => handleItemClick(item, index)}
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                  >
-                    <div className="flex items-center gap-4">
-                      <div className="relative flex-shrink-0">
-                        {/* ✅ Use CSS-based cropping for thumbnails */}
-                        {item.bbox && imageAccessible ? (
-                          <div
-                            className="w-20 h-20 rounded-lg shadow-md border border-gray-200"
-                            style={createCroppedImageCSS(scan.imageUrl, item.bbox)}
-                          />
-                        ) : (
-                          <img
-                            src={scan.imageUrl}
-                            alt={item.object}
-                            className="w-20 h-20 rounded-lg object-cover shadow-md border border-gray-200"
-                            onError={(e) => {
-                              e.target.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 80 80"><rect width="80" height="80" fill="%23f3f4f6"/><text x="40" y="45" text-anchor="middle" fill="%236b7280" font-size="12">📦</text></svg>';
-                            }}
-                          />
-                        )}
-                        <div className="absolute -top-1 -right-1 w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center">
-                          <span className="text-white text-xs font-bold">{index + 1}</span>
+                {formattedItems.map((item, index) => {
+                  const imageProps = item.bbox ? createImageCropStyle(scan.imageUrl, item.bbox) : null;
+                  
+                  return (
+                    <motion.div
+                      key={index}
+                      className="bg-white border-2 border-gray-100 rounded-xl p-4 cursor-pointer hover:border-blue-300 hover:bg-blue-50/30 transition-all duration-200"
+                      onClick={() => handleItemClick(item, index)}
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className="relative flex-shrink-0">
+                          {/* ✅ Use improved cropping for thumbnails */}
+                          {item.bbox && imageAccessible && imageProps ? (
+                            <div className="w-20 h-20 rounded-lg overflow-hidden shadow-md border border-gray-200">
+                              <img
+                                {...imageProps}
+                                alt={item.object}
+                                className="w-full h-full"
+                              />
+                            </div>
+                          ) : (
+                            <img
+                              src={scan.imageUrl}
+                              alt={item.object}
+                              className="w-20 h-20 rounded-lg object-cover shadow-md border border-gray-200"
+                              onError={(e) => {
+                                e.target.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 80 80"><rect width="80" height="80" fill="%23f3f4f6"/><text x="40" y="45" text-anchor="middle" fill="%236b7280" font-size="12">📦</text></svg>';
+                              }}
+                            />
+                          )}
+                          <div className="absolute -top-1 -right-1 w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center">
+                            <span className="text-white text-xs font-bold">{index + 1}</span>
+                          </div>
+                        </div>
+                        
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-semibold text-gray-900 truncate">{item.object}</h4>
+                          <p className="text-sm text-gray-600 truncate">{item.material}</p>
+                          <div className="flex items-center gap-2 mt-2">
+                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                              +{item.pointsEarned} pts
+                            </span>
+                            <span className="text-xs text-gray-500">{item.co2Value}</span>
+                          </div>
+                        </div>
+                        
+                        <div className="text-gray-400">
+                          <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
+                          </svg>
                         </div>
                       </div>
-                      
-                      <div className="flex-1 min-w-0">
-                        <h4 className="font-semibold text-gray-900 truncate">{item.object}</h4>
-                        <p className="text-sm text-gray-600 truncate">{item.material}</p>
-                        <div className="flex items-center gap-2 mt-2">
-                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                            +{item.pointsEarned} pts
-                          </span>
-                          <span className="text-xs text-gray-500">{item.co2Value}</span>
-                        </div>
-                      </div>
-                      
-                      <div className="text-gray-400">
-                        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
-                        </svg>
-                      </div>
-                    </div>
-                  </motion.div>
-                ))}
+                    </motion.div>
+                  );
+                })}
               </div>
             </div>
           ) : (
-            // Single Item Details
+            // Single Item Details (unchanged)
             <div className="space-y-6">
               <div className="bg-white rounded-2xl p-5 border-2 border-gray-100 shadow-sm">
                 <div className="flex items-center gap-3 mb-3">

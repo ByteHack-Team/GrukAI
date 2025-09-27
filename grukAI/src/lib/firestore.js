@@ -60,7 +60,7 @@ export async function checkImageAccessibility(imageUrl) {
   });
 }
 
-// ✅ FIXED: Corrected CSS-based cropping calculation
+// ✅ COMPLETELY REWRITTEN: Simpler and more reliable CSS cropping
 export function createCroppedImageCSS(originalImageUrl, bbox) {
   if (!bbox || !Array.isArray(bbox) || bbox.length !== 4) {
     console.warn('Invalid bbox for cropping:', bbox);
@@ -76,19 +76,18 @@ export function createCroppedImageCSS(originalImageUrl, bbox) {
   
   console.log('Creating CSS crop with bbox:', { x, y, width, height });
   
-  // Calculate the scale factor to show only the cropped portion
-  const scaleX = 100 / width; // How much to scale horizontally 
-  const scaleY = 100 / height; // How much to scale vertically
-  
-  // Calculate the position offset to center the cropped area
-  const offsetX = -(x * scaleX); // Move left to show the right part
-  const offsetY = -(y * scaleY); // Move up to show the bottom part
+  // Use CSS clip-path instead of complex background positioning
+  // This is much more reliable and predictable
+  const clipPath = `inset(${y}% ${100 - x - width}% ${100 - y - height}% ${x}%)`;
   
   const cssStyle = {
     backgroundImage: `url(${originalImageUrl})`,
-    backgroundSize: `${scaleX * 100}% ${scaleY * 100}%`,
-    backgroundPosition: `${offsetX}% ${offsetY}%`,
-    backgroundRepeat: 'no-repeat'
+    backgroundSize: 'cover',
+    backgroundPosition: 'center',
+    backgroundRepeat: 'no-repeat',
+    clipPath: clipPath,
+    // Fallback for browsers that don't support clip-path
+    '-webkit-clip-path': clipPath
   };
   
   console.log('Generated CSS style:', cssStyle);
@@ -96,25 +95,33 @@ export function createCroppedImageCSS(originalImageUrl, bbox) {
   return cssStyle;
 }
 
-// ✅ ALTERNATIVE: Fallback cropping function that uses simpler approach
-export function createSimpleCrop(originalImageUrl, bbox) {
+// ✅ NEW: Alternative method using object-position (for img elements)
+export function createImageCropStyle(originalImageUrl, bbox) {
   if (!bbox || !Array.isArray(bbox) || bbox.length !== 4) {
     return {
-      backgroundImage: `url(${originalImageUrl})`,
-      backgroundSize: 'cover',
-      backgroundPosition: 'center',
-      backgroundRepeat: 'no-repeat'
+      src: originalImageUrl,
+      style: {
+        objectFit: 'cover',
+        objectPosition: 'center'
+      }
     };
   }
   
   const [x, y, width, height] = bbox;
   
-  // Simple approach: just use the original image with object-fit
+  // Calculate the center point of the bounding box
+  const centerX = x + (width / 2);
+  const centerY = y + (height / 2);
+  
   return {
-    backgroundImage: `url(${originalImageUrl})`,
-    backgroundSize: 'cover',
-    backgroundPosition: `${x + width/2}% ${y + height/2}%`,
-    backgroundRepeat: 'no-repeat'
+    src: originalImageUrl,
+    style: {
+      objectFit: 'cover',
+      objectPosition: `${centerX}% ${centerY}%`,
+      // Scale the image so the bbox area fills the container
+      transform: `scale(${Math.max(100/width, 100/height)})`,
+      transformOrigin: `${centerX}% ${centerY}%`
+    }
   };
 }
 
