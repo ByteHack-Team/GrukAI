@@ -5,7 +5,7 @@ import FlipCameraIosIcon from "@mui/icons-material/FlipCameraIos";
 import FlashOnIcon from "@mui/icons-material/FlashOn";
 import FlashOffIcon from "@mui/icons-material/FlashOff";
 import ScanResultTab from "./ScanResultTab";
-import { auth, uploadScanImage, addPointsToUser } from "../../lib/firestore";
+import { auth, uploadScanImage, addPointsToUser, saveScanToHistory } from "../../lib/firestore";
 import { analyzeImageFrontend } from "../../lib/langgraph";
 import { cropMultipleItems } from "../../lib/cropUtils";
 
@@ -87,6 +87,35 @@ function CameraApp() {
     }
   };
 
+  // Helper function to get user location
+  const getCurrentLocation = () => {
+    return new Promise((resolve) => {
+      if (!navigator.geolocation) {
+        resolve(null);
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          resolve({
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+            accuracy: position.coords.accuracy
+          });
+        },
+        (error) => {
+          console.warn("Location access denied:", error);
+          resolve(null);
+        },
+        {
+          timeout: 5000,
+          enableHighAccuracy: true,
+          maximumAge: 60000
+        }
+      );
+    });
+  };
+
   const capturePhoto = async () => {
     if (!videoRef.current || isCapturing || isScanning) return;
     const user = auth.currentUser;
@@ -116,6 +145,9 @@ function CameraApp() {
           try {
             if (!blob) throw new Error("Blob conversion failed");
 
+            setUploadStatus("Getting location...");
+            const location = await getCurrentLocation();
+
             setUploadStatus("Analyzing & uploading...");
             
             const prompt = "Identify all waste items and provide proper disposal instructions with bounding boxes.";
@@ -125,8 +157,19 @@ function CameraApp() {
               uploadScanImage(user.uid, blob, { source: "camera", status: "raw" })
             ]);
 
+            console.log("=== AI RESULT DEBUG ===");
+            console.log("AI Result:", aiResult);
+            console.log("Type:", typeof aiResult);
+            console.log("Is Multiple Items:", aiResult?.isMultipleItems);
+            if (aiResult?.items) {
+              console.log("Items count:", aiResult.items.length);
+              console.log("First item bbox:", aiResult.items[0]?.bbox);
+            }
+            console.log("======================");
+
             let finalResult;
             let totalPointsToAdd = 0;
+            let scanHistoryData;
 
             if (typeof aiResult === "string") {
               if (aiResult === "No garbage found") {
@@ -141,11 +184,27 @@ function CameraApp() {
                   isLoading: false,
                   isMultipleItems: false
                 };
+
+                scanHistoryData = {
+                  type: "single",
+                  imageUrl: uploadResult.url,
+                  imagePath: uploadResult.path,
+                  object: "No garbage detected",
+                  material: "Unknown",
+                  disposalInstructions: "No waste item detected in image",
+                  description: "Try capturing a clearer image of waste item",
+                  pointsEarned: 0,
+                  co2Value: "—",
+                  bbox: [0, 0, 100, 100], // ✅ Default bbox for no detection
+                  location: location,
+                  source: "camera"
+                };
               } else {
                 try {
                   const cleaned = aiResult.replace(/^```json\s*/, "").replace(/```$/, "").trim();
                   const parsed = JSON.parse(cleaned);
                   totalPointsToAdd = parsed.points_earned ?? 0;
+                  
                   finalResult = {
                     image_url: uploadResult.url,
                     object: parsed.object || "Unknown",
@@ -154,10 +213,27 @@ function CameraApp() {
                     description: parsed.description || parsed.description_info || "No description",
                     points_earned: totalPointsToAdd,
                     co2value: parsed.co2value || parsed.co2 || "—",
+                    bbox: parsed.bbox || [0, 0, 100, 100], // ✅ Ensure bbox is included
                     isLoading: false,
                     isMultipleItems: false
                   };
-                } catch {
+
+                  scanHistoryData = {
+                    type: "single",
+                    imageUrl: uploadResult.url,
+                    imagePath: uploadResult.path,
+                    object: parsed.object || "Unknown",
+                    material: parsed.material || "Unknown",
+                    disposalInstructions: parsed.disposal_instructions || "No instructions",
+                    description: parsed.description || parsed.description_info || "No description",
+                    pointsEarned: totalPointsToAdd,
+                    co2Value: parsed.co2value || parsed.co2 || "—",
+                    bbox: parsed.bbox || [0, 0, 100, 100], // ✅ CRITICAL: Store bbox for single items
+                    location: location,
+                    source: "camera"
+                  };
+                } catch (parseError) {
+                  console.error("Parse error:", parseError);
                   finalResult = {
                     image_url: uploadResult.url,
                     object: "Parse Error",
@@ -166,30 +242,85 @@ function CameraApp() {
                     description: aiResult.slice(0, 200),
                     points_earned: 0,
                     co2value: "—",
+                    bbox: [0, 0, 100, 100],
                     isLoading: false,
                     isMultipleItems: false
                   };
+
+                  scanHistoryData = {
+                    type: "single",
+                    imageUrl: uploadResult.url,
+                    imagePath: uploadResult.path,
+                    object: "Parse Error",
+                    material: "Unknown",
+                    disposalInstructions: "Failed to parse AI response",
+                    description: aiResult.slice(0, 200),
+                    pointsEarned: 0,
+                    co2Value: "—",
+                    bbox: [0, 0, 100, 100], // ✅ Default bbox for parse errors
+                    location: location,
+                    source: "camera",
+                    error: "Failed to parse AI response"
+                  };
                 }
               }
-            } else if (aiResult.isMultipleItems) {
-              // Multiple items detected - crop them
-              setUploadStatus("Cropping detected items...");
+            } else if (aiResult.isMultipleItems && aiResult.items && aiResult.items.length > 0) {
+              // ✅ MULTIPLE ITEMS - Store bbox for each item
+              console.log("=== PROCESSING MULTIPLE ITEMS ===");
+              console.log("Items to process:", aiResult.items.length);
               
+              // Crop items for immediate display
+              setUploadStatus("Cropping detected items...");
               const croppedItems = await cropMultipleItems(blob, aiResult.items);
               totalPointsToAdd = aiResult.totalPoints;
               
               finalResult = {
                 isMultipleItems: true,
-                items: croppedItems,
+                items: croppedItems, // For immediate display
                 totalItems: aiResult.totalItems,
                 totalPoints: aiResult.totalPoints,
                 image_url: uploadResult.url,
                 originalImageBlob: blob,
                 isLoading: false
               };
+
+              // ✅ CRITICAL: Store original items with bbox coordinates
+              scanHistoryData = {
+                type: "multiple",
+                imageUrl: uploadResult.url,
+                imagePath: uploadResult.path,
+                totalItems: aiResult.items.length,
+                totalPoints: aiResult.totalPoints,
+                items: aiResult.items.map((item, index) => {
+                  console.log(`Item ${index + 1} bbox:`, item.bbox);
+                  return {
+                    object: item.object || "Unknown",
+                    material: item.material || "Unknown",
+                    disposalInstructions: item.disposal_instructions || "No instructions",
+                    description: item.description || item.description_info || "No description",
+                    pointsEarned: item.points_earned || 0,
+                    co2Value: item.co2value || item.co2 || "—",
+                    bbox: item.bbox || [10 + (index * 20), 10 + (index * 15), 60, 60] // ✅ STORE BBOX!
+                  };
+                }),
+                location: location,
+                source: "camera"
+              };
+
+              console.log("=== SCAN HISTORY DATA FOR MULTIPLE ITEMS ===");
+              console.log("Items with bbox:", scanHistoryData.items.map(item => ({
+                object: item.object,
+                bbox: item.bbox
+              })));
+              console.log("==========================================");
+
             } else {
-              // Single item
+              // ✅ SINGLE ITEM - Ensure bbox is stored
+              console.log("=== PROCESSING SINGLE ITEM ===");
+              console.log("Single item bbox:", aiResult.bbox);
+              
               totalPointsToAdd = aiResult.points_earned ?? 0;
+              
               finalResult = {
                 image_url: uploadResult.url,
                 object: aiResult.object || "Unknown",
@@ -198,21 +329,52 @@ function CameraApp() {
                 description: aiResult.description || aiResult.description_info || "No description",
                 points_earned: totalPointsToAdd,
                 co2value: aiResult.co2value || aiResult.co2 || "—",
-                bbox: aiResult.bbox || [0, 0, 100, 100],
+                bbox: aiResult.bbox || [0, 0, 100, 100], // ✅ Include bbox in result
                 isLoading: false,
                 isMultipleItems: false
               };
+
+              scanHistoryData = {
+                type: "single",
+                imageUrl: uploadResult.url,
+                imagePath: uploadResult.path,
+                object: aiResult.object || "Unknown",
+                material: aiResult.material || "Unknown",
+                disposalInstructions: aiResult.disposal_instructions || "No instructions",
+                description: aiResult.description || aiResult.description_info || "No description",
+                pointsEarned: totalPointsToAdd,
+                co2Value: aiResult.co2value || aiResult.co2 || "—",
+                bbox: aiResult.bbox || [0, 0, 100, 100], // ✅ CRITICAL: Store bbox for single items
+                location: location,
+                source: "camera"
+              };
+
+              console.log("=== SCAN HISTORY DATA FOR SINGLE ITEM ===");
+              console.log("Single item with bbox:", {
+                object: scanHistoryData.object,
+                bbox: scanHistoryData.bbox
+              });
+              console.log("=======================================");
             }
 
-            // Add points to user database
-            if (totalPointsToAdd > 0) {
-              try {
-                await addPointsToUser(user.uid, totalPointsToAdd);
-                console.log(`Successfully added ${totalPointsToAdd} points to user`);
-              } catch (pointsError) {
-                console.error("Failed to add points to user:", pointsError);
-              }
-            }
+            // ✅ Debug the scan history data before saving
+            console.log("=== FINAL SCAN HISTORY DATA ===");
+            console.log("Type:", scanHistoryData.type);
+            console.log("Data to save:", JSON.stringify(scanHistoryData, null, 2));
+            console.log("===============================");
+
+            setUploadStatus("Saving scan...");
+            
+            // Save scan to history and add points
+            const [scanHistoryId] = await Promise.all([
+              saveScanToHistory(user.uid, scanHistoryData),
+              totalPointsToAdd > 0 ? addPointsToUser(user.uid, totalPointsToAdd) : Promise.resolve()
+            ]);
+
+            console.log("✅ Scan saved with ID:", scanHistoryId);
+
+            // Add scan ID to final result for reference
+            finalResult.scanHistoryId = scanHistoryId;
 
             setScanResult(finalResult);
             setUploadStatus("Analysis complete.");
@@ -234,6 +396,7 @@ function CameraApp() {
               description: err.message,
               points_earned: 0,
               co2value: "—",
+              bbox: [0, 0, 100, 100],
               isLoading: false,
               isMultipleItems: false
             };
@@ -269,7 +432,6 @@ function CameraApp() {
     setShowResultTab(false);
     setScanResult(null);
   };
-
 
   return (
     <div className="fixed inset-0 bg-black z-50 w-screen h-screen">

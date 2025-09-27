@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react"
 import { onAuthStateChanged } from "firebase/auth"
 import { doc, getDoc } from "firebase/firestore"
-import { auth, db } from "../../lib/firestore" // adjust if your firebase export path differs
+import { useNavigate } from "react-router-dom" // Add this import
+import { auth, db } from "../../lib/firestore"
 import Setting from './Setting'
 
 function Dashboard() {
@@ -25,6 +26,10 @@ function Dashboard() {
   const [userLocation, setUserLocation] = useState(null)
   const [locationError, setLocationError] = useState(null)
   const [loading, setLoading] = useState(true)
+
+  const navigate = useNavigate() // Add this
+
+  // ... all your existing useEffects and functions remain the same ...
 
   // Fetch auth state + user profile
   useEffect(() => {
@@ -408,7 +413,70 @@ function Dashboard() {
           </div>
         </div>
 
-        {/* Nearby Facilities Section (kept static for now) */}
+        {/* ✅ NEW: Quick Actions Section - ADD THIS SECTION */}
+        <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 border border-emerald-200/30 shadow-sm">
+          <h3 className="text-lg font-bold text-emerald-900 mb-4">Quick Actions</h3>
+          <div className="space-y-3">
+            {/* Scan History Button */}
+            <button
+              onClick={() => navigate('/scan-history')}
+              className="flex items-center gap-3 w-full p-4 bg-purple-50 rounded-xl hover:bg-purple-100 transition-colors border border-purple-200/50"
+            >
+              <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
+                <span className="text-purple-600 text-lg">📜</span>
+              </div>
+              <div className="flex-1 text-left">
+                <h4 className="font-semibold text-purple-900">Scan History</h4>
+                <p className="text-sm text-purple-600">View your past scans and locations</p>
+              </div>
+              <div className="text-purple-400">
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
+                </svg>
+              </div>
+            </button>
+
+            {/* Start Scanning Button */}
+            <button
+              onClick={() => navigate('/camera')}
+              className="flex items-center gap-3 w-full p-4 bg-blue-50 rounded-xl hover:bg-blue-100 transition-colors border border-blue-200/50"
+            >
+              <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                <span className="text-blue-600 text-lg">📷</span>
+              </div>
+              <div className="flex-1 text-left">
+                <h4 className="font-semibold text-blue-900">Start Scanning</h4>
+                <p className="text-sm text-blue-600">Scan items to earn points</p>
+              </div>
+              <div className="text-blue-400">
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
+                </svg>
+              </div>
+            </button>
+
+            {/* View Map Button */}
+            <button
+              onClick={() => navigate('/map')}
+              className="flex items-center gap-3 w-full p-4 bg-green-50 rounded-xl hover:bg-green-100 transition-colors border border-green-200/50"
+            >
+              <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                <span className="text-green-600 text-lg">🗺️</span>
+              </div>
+              <div className="flex-1 text-left">
+                <h4 className="font-semibold text-green-900">View Map</h4>
+                <p className="text-sm text-green-600">Find nearby disposal locations</p>
+              </div>
+              <div className="text-green-400">
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
+                </svg>
+              </div>
+            </button>
+          </div>
+        </div>
+
+        {/* Nearby Facilities Section (existing - no changes) */}
         <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 border border-emerald-200/30 shadow-sm">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-bold text-emerald-900">Nearby Facilities</h3>
@@ -471,11 +539,12 @@ function Dashboard() {
                 ))}
               </div>
               
-              <button              onClick={() => {
-                const query = encodeURIComponent(`recycling centers near ${userData?.city || 'your location'}, ${userData?.location || ''}`)
-                const url = `https://www.google.com/maps/search/?api=1&query=${query}`
-                window.open(url, '_blank')
-              }}
+              <button              
+                onClick={() => {
+                  const query = encodeURIComponent(`recycling centers near ${userData?.city || 'your location'}, ${userData?.location || ''}`)
+                  const url = `https://www.google.com/maps/search/?api=1&query=${query}`
+                  window.open(url, '_blank')
+                }}
                 className="w-full mt-4 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-3 rounded-xl font-medium transition-all duration-300 transform hover:scale-105 hover:shadow-lg flex items-center justify-center gap-2"
               >
                 <span>🔍</span>
