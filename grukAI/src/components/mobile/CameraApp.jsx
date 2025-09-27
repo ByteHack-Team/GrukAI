@@ -17,6 +17,7 @@ function CameraApp() {
   const [isScanning, setIsScanning] = useState(false);
   const [uploadStatus, setUploadStatus] = useState("");
   const [scanResult, setScanResult] = useState(null);
+  const [showResultTab, setShowResultTab] = useState(false);
 
   const videoRef = useRef(null);
   const startingRef = useRef(false);
@@ -114,19 +115,6 @@ function CameraApp() {
         async (blob) => {
           try {
             if (!blob) throw new Error("Blob conversion failed");
-            
-            // Show placeholder with immediate image preview
-            const placeholder = {
-              image_url: imageDataUrl, // Use data URL for immediate display
-              object: "Analyzing...",
-              material: "Analyzing...",
-              disposal_instructions: "Analyzing...",
-              description: "Running AI analysis...",
-              points_earned: 0,
-              co2value: "—",
-              isLoading: true // Add loading flag
-            };
-            setScanResult(placeholder);
 
             // Run AI analysis and upload in parallel
             setUploadStatus("Analyzing & uploading...");
@@ -195,12 +183,20 @@ function CameraApp() {
               };
             }
 
+            // Store the result but don't show the tab yet
             setScanResult(finalResult);
             setUploadStatus("Analysis complete.");
+
+            // Wait for scan animation to complete (3 seconds) before showing result tab
+            setTimeout(() => {
+              setIsScanning(false);
+              setShowResultTab(true);
+            }, 3000); // Match the scan animation duration
+
           } catch (err) {
             console.error("Scan flow error:", err);
             setError("Scan failed");
-            setScanResult({
+            const errorResult = {
               image_url: imageDataUrl,
               object: "Error",
               material: "Unknown", 
@@ -209,10 +205,16 @@ function CameraApp() {
               points_earned: 0,
               co2value: "—",
               isLoading: false
-            });
+            };
+            setScanResult(errorResult);
+            
+            // Still wait for animation to complete even on error
+            setTimeout(() => {
+              setIsScanning(false);
+              setShowResultTab(true);
+            }, 3000);
           } finally {
             setIsCapturing(false);
-            setIsScanning(false);
             setTimeout(() => setUploadStatus(""), 2000);
           }
         },
@@ -233,7 +235,10 @@ function CameraApp() {
     navigate("/dashboard");
   };
 
-  const handleCloseScanResult = () => setScanResult(null);
+  const handleCloseScanResult = () => {
+    setShowResultTab(false);
+    setScanResult(null);
+  };
 
   return (
     <div className="fixed inset-0 bg-black z-50 w-screen h-screen">
@@ -317,7 +322,7 @@ function CameraApp() {
         </div>
       )}
 
-      {scanResult && (
+      {showResultTab && scanResult && (
         <ScanResultTab result={scanResult} onClose={handleCloseScanResult} />
       )}
     </div>
