@@ -6,6 +6,9 @@ import FlashOnIcon from "@mui/icons-material/FlashOn";
 import FlashOffIcon from "@mui/icons-material/FlashOff";
 import ScanResultTab from "./ScanResultTab";
 import { auth, uploadScanImage } from "../../lib/firestore";
+import { analyzeImageFrontend } from "../../lib/langgraph";
+import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { db } from "../../lib/firestore";
 
 function CameraApp() {
   const [stream, setStream] = useState(null);
@@ -31,18 +34,20 @@ function CameraApp() {
     if (startingRef.current) return;
     startingRef.current = true;
     try {
-      if (stream) stream.getTracks().forEach(t => t.stop());
+      if (stream) stream.getTracks().forEach((t) => t.stop());
 
       const constraints = {
         video: {
           facingMode,
           width: { ideal: 1280 },
-          height: { ideal: 720 }
+          height: { ideal: 720 },
         },
-        audio: false
+        audio: false,
       };
 
-      const mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
+      const mediaStream = await navigator.mediaDevices.getUserMedia(
+        constraints
+      );
       setStream(mediaStream);
 
       if (videoRef.current) {
@@ -50,7 +55,7 @@ function CameraApp() {
         // Safely call play, ignore AbortError
         const playPromise = videoRef.current.play();
         if (playPromise && typeof playPromise.then === "function") {
-          playPromise.catch(err => {
+          playPromise.catch((err) => {
             if (err.name !== "AbortError") {
               console.warn("Video play issue:", err);
             }
@@ -68,15 +73,15 @@ function CameraApp() {
   };
 
   const stopCamera = () => {
-    if (stream) stream.getTracks().forEach(t => t.stop());
+    if (stream) stream.getTracks().forEach((t) => t.stop());
     setStream(null);
   };
 
   const flipCamera = () =>
-    setFacingMode(prev => (prev === "user" ? "environment" : "user"));
+    setFacingMode((prev) => (prev === "user" ? "environment" : "user"));
 
   const toggleFlash = () => {
-    setFlashEnabled(f => !f);
+    setFlashEnabled((f) => !f);
     if (stream) {
       const track = stream.getVideoTracks()[0];
       if (track?.getCapabilities().torch) {
@@ -103,21 +108,20 @@ function CameraApp() {
       const canvas = document.createElement("canvas");
       canvas.width = videoRef.current.videoWidth;
       canvas.height = videoRef.current.videoHeight;
-      if (!canvas.width || !canvas.height) {
-        throw new Error("Video not ready");
-      }
+      if (!canvas.width || !canvas.height) throw new Error("Video not ready");
+
       const ctx = canvas.getContext("2d");
       ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
 
       setUploadStatus("Converting image...");
       canvas.toBlob(
-        async blob => {
+        async (blob) => {
           try {
             if (!blob) throw new Error("Blob conversion failed");
             setUploadStatus("Uploading image...");
             const { url, docId } = await uploadScanImage(user.uid, blob, {
               source: "camera",
-              status: "raw"
+              status: "raw",
             });
 
             const result = {
@@ -129,11 +133,67 @@ function CameraApp() {
               description:
                 "Image uploaded. AI (Gemini) analysis will replace this.",
               points_earned: 0,
-              co2value: "—"
+              co2value: "—",
             };
 
             setUploadStatus("Uploaded.");
             setScanResult(result);
+
+            // --- AI Analysis Step ---
+            setUploadStatus("Analyzing image...");
+            try {
+              const aiResultRaw = await analyzeImageFrontend(url);
+              console.log(
+                "Raw AI result:",
+                aiResultRaw,
+                "Type:",
+                typeof aiResultRaw
+              );
+
+              let aiResultObj;
+              if (typeof aiResultRaw === "string") {
+                const cleaned = aiResultRaw
+                  .replace(/^```json\s*/, "")
+                  .replace(/```$/, "")
+                  .trim();
+                console.log("Cleaned AI result string:", cleaned);
+                if (cleaned === "No garbage found") {
+                  aiResultObj = null; // or handle as needed
+                } else {
+                  aiResultObj = JSON.parse(cleaned);
+                  console.log("✅ Parsed AI result object:", aiResultObj);
+                  console.log("Keys:", Object.keys(aiResultObj));
+                  console.log("Values:", Object.values(aiResultObj));
+                }
+              }
+
+              // Prepare Firestore document
+              const responseDoc = {
+                image_url: aiResultObj.image_url || url,
+                object: aiResultObj.object || "Unknown",
+                material: aiResultObj.material || "Unknown",
+                disposal_instructions:
+                  aiResultObj.disposal_instructions || "No instructions",
+                points_earned: aiResultObj.points_earned ?? 0,
+                description_info:
+                  aiResultObj.description_info || "No description",
+                createdAt: serverTimestamp(),
+              };
+
+              console.log("Uploading AI result to Firestore:", responseDoc);
+              const docRef = await addDoc(
+                collection(db, "responses"),
+                responseDoc
+              );
+              console.log("✅ AI result uploaded! Doc ID:", docRef.id);
+
+              // Update local state
+              setScanResult(responseDoc);
+              setUploadStatus("Analysis complete.");
+            } catch (err) {
+              console.error("❌ AI analysis or Firestore upload failed:", err);
+              setError("AI analysis or upload failed");
+            }
           } catch (err) {
             console.error("Upload error:", err);
             if (err?.code === "storage/unauthorized") {
