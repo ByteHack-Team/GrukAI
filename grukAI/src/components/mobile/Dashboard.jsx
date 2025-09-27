@@ -41,8 +41,8 @@ function Dashboard() {
               profileImage: "👤",
               totalPoints: data.totalPoints || 0,
               streak: data.streak || 0,
-              city: data.city || "San Francisco",
-              location: data.location || "California, USA",
+              city: data.city || "New York City",
+              location: data.location || "New York, USA",
               shareLocation: data.shareLocation !== undefined ? data.shareLocation : true
             })
             setUserPoints(data.totalPoints || 0)
@@ -179,27 +179,27 @@ function Dashboard() {
         name: "GreenPoint Recycling Center",
         type: "Recycling Center",
         distance: "0.8 miles",
-        address: "123 Green Street, San Francisco, CA",
+        address: "123 Green Street, New York, NY",
         icon: "♻️",
-        coordinates: "37.7749,-122.4194"
+        coordinates: "40.7749,-73.9194"
       },
       {
         id: 2,
         name: "EcoWaste Drop-off",
         type: "Drop-off Point",
         distance: "1.2 miles", 
-        address: "456 Earth Ave, San Francisco, CA",
+        address: "456 Earth Ave, New York, NY",
         icon: "🗂️",
-        coordinates: "37.7849,-122.4094"
+        coordinates: "40.7849,-73.9094"
       },
       {
         id: 3,
-        name: "Ocean Cleanup Station",
+        name: "Hudson River Cleanup Station",
         type: "Cleanup Center",
         distance: "2.1 miles",
-        address: "789 Ocean Blvd, San Francisco, CA", 
+        address: "789 River Blvd, New York, NY", 
         icon: "🌊",
-        coordinates: "37.7649,-122.4294"
+        coordinates: "40.7649,-73.9294"
       }
     ])
   }
