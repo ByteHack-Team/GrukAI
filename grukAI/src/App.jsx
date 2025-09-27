@@ -6,7 +6,9 @@ import Leaderboard from './components/mobile/Leaderboard'
 import Map from './components/mobile/Map'
 import Shop from './components/mobile/Shop'
 import LoginPage from './pages/LoginPage'
-import ItemDetail from './components/mobile/ItemDetail';
+import ItemDetail from './components/mobile/ItemDetail'
+import ScanHistory from './components/mobile/ScanHistory'
+import ScanDetail from './components/mobile/ScanDetail'
 import './App.css'
 
 function AppContent() {
@@ -26,6 +28,8 @@ function AppContent() {
             <Route path="/map" element={<Map />} />
             <Route path="/shop" element={<Shop />} />
             <Route path="/item-detail" element={<ItemDetail />} />
+            <Route path="/scan-history" element={<ScanHistory />} />
+            <Route path="/scan-detail" element={<ScanDetail />} />
           </Routes>
         </main>
       </div>
