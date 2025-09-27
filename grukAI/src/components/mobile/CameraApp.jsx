@@ -5,7 +5,7 @@ import FlipCameraIosIcon from "@mui/icons-material/FlipCameraIos";
 import FlashOnIcon from "@mui/icons-material/FlashOn";
 import FlashOffIcon from "@mui/icons-material/FlashOff";
 import ScanResultTab from "./ScanResultTab";
-import { auth, uploadScanImage } from "../../lib/firestore";
+import { auth, uploadScanImage, addPointsToUser } from "../../lib/firestore";
 import { analyzeImageFrontend } from "../../lib/langgraph";
 
 function CameraApp() {
@@ -129,6 +129,8 @@ function CameraApp() {
 
             // Handle different response types from AI
             let finalResult;
+            let pointsToAdd = 0;
+
             if (typeof aiResult === "string") {
               if (aiResult === "No garbage found") {
                 finalResult = {
@@ -141,22 +143,25 @@ function CameraApp() {
                   co2value: "—",
                   isLoading: false
                 };
+                pointsToAdd = 0;
               } else {
                 // Try to parse string response
                 try {
                   const cleaned = aiResult.replace(/^```json\s*/, "").replace(/```$/, "").trim();
                   const parsed = JSON.parse(cleaned);
+                  pointsToAdd = parsed.points_earned ?? 0;
                   finalResult = {
                     image_url: uploadResult.url,
                     object: parsed.object || "Unknown",
                     material: parsed.material || "Unknown", 
                     disposal_instructions: parsed.disposal_instructions || "No instructions",
                     description: parsed.description || parsed.description_info || "No description",
-                    points_earned: parsed.points_earned ?? 0,
+                    points_earned: pointsToAdd,
                     co2value: parsed.co2value || parsed.co2 || "—",
                     isLoading: false
                   };
                 } catch {
+                  pointsToAdd = 0;
                   finalResult = {
                     image_url: uploadResult.url,
                     object: "Parse Error",
@@ -171,16 +176,28 @@ function CameraApp() {
               }
             } else {
               // Object response
+              pointsToAdd = aiResult.points_earned ?? 0;
               finalResult = {
                 image_url: uploadResult.url,
                 object: aiResult.object || "Unknown",
                 material: aiResult.material || "Unknown",
                 disposal_instructions: aiResult.disposal_instructions || "No instructions",
                 description: aiResult.description || aiResult.description_info || "No description",
-                points_earned: aiResult.points_earned ?? 0,
+                points_earned: pointsToAdd,
                 co2value: aiResult.co2value || aiResult.co2 || "—",
                 isLoading: false
               };
+            }
+
+            // Add points to user database if points > 0
+            if (pointsToAdd > 0) {
+              try {
+                await addPointsToUser(user.uid, pointsToAdd);
+                console.log(`Successfully added ${pointsToAdd} points to user`);
+              } catch (pointsError) {
+                console.error("Failed to add points to user:", pointsError);
+                // Don't fail the whole flow if points update fails
+              }
             }
 
             // Store the result but don't show the tab yet
