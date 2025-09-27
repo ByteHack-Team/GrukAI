@@ -5,8 +5,9 @@ import FlipCameraIosIcon from "@mui/icons-material/FlipCameraIos";
 import FlashOnIcon from "@mui/icons-material/FlashOn";
 import FlashOffIcon from "@mui/icons-material/FlashOff";
 import ScanResultTab from "./ScanResultTab";
-import { auth, uploadScanImage } from "../../lib/firestore";
+import { auth, uploadScanImage, addPointsToUser } from "../../lib/firestore";
 import { analyzeImageFrontend } from "../../lib/langgraph";
+import { cropMultipleItems } from "../../lib/cropUtils";
 
 function CameraApp() {
   const [stream, setStream] = useState(null);
@@ -107,7 +108,6 @@ function CameraApp() {
       const ctx = canvas.getContext("2d");
       ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
 
-      // Create image data URL for immediate preview
       const imageDataUrl = canvas.toDataURL("image/jpeg", 0.9);
 
       setUploadStatus("Converting image...");
@@ -116,19 +116,18 @@ function CameraApp() {
           try {
             if (!blob) throw new Error("Blob conversion failed");
 
-            // Run AI analysis and upload in parallel
             setUploadStatus("Analyzing & uploading...");
             
-            const prompt = "Identify the waste item and provide proper disposal instructions.";
+            const prompt = "Identify all waste items and provide proper disposal instructions with bounding boxes.";
             
-            // Start both operations simultaneously
             const [aiResult, uploadResult] = await Promise.all([
               analyzeImageFrontend({ imageBlob: blob, prompt }),
               uploadScanImage(user.uid, blob, { source: "camera", status: "raw" })
             ]);
 
-            // Handle different response types from AI
             let finalResult;
+            let totalPointsToAdd = 0;
+
             if (typeof aiResult === "string") {
               if (aiResult === "No garbage found") {
                 finalResult = {
@@ -139,22 +138,24 @@ function CameraApp() {
                   description: "Try capturing a clearer image of waste item",
                   points_earned: 0,
                   co2value: "—",
-                  isLoading: false
+                  isLoading: false,
+                  isMultipleItems: false
                 };
               } else {
-                // Try to parse string response
                 try {
                   const cleaned = aiResult.replace(/^```json\s*/, "").replace(/```$/, "").trim();
                   const parsed = JSON.parse(cleaned);
+                  totalPointsToAdd = parsed.points_earned ?? 0;
                   finalResult = {
                     image_url: uploadResult.url,
                     object: parsed.object || "Unknown",
                     material: parsed.material || "Unknown", 
                     disposal_instructions: parsed.disposal_instructions || "No instructions",
                     description: parsed.description || parsed.description_info || "No description",
-                    points_earned: parsed.points_earned ?? 0,
+                    points_earned: totalPointsToAdd,
                     co2value: parsed.co2value || parsed.co2 || "—",
-                    isLoading: false
+                    isLoading: false,
+                    isMultipleItems: false
                   };
                 } catch {
                   finalResult = {
@@ -165,33 +166,62 @@ function CameraApp() {
                     description: aiResult.slice(0, 200),
                     points_earned: 0,
                     co2value: "—",
-                    isLoading: false
+                    isLoading: false,
+                    isMultipleItems: false
                   };
                 }
               }
+            } else if (aiResult.isMultipleItems) {
+              // Multiple items detected - crop them
+              setUploadStatus("Cropping detected items...");
+              
+              const croppedItems = await cropMultipleItems(blob, aiResult.items);
+              totalPointsToAdd = aiResult.totalPoints;
+              
+              finalResult = {
+                isMultipleItems: true,
+                items: croppedItems,
+                totalItems: aiResult.totalItems,
+                totalPoints: aiResult.totalPoints,
+                image_url: uploadResult.url,
+                originalImageBlob: blob,
+                isLoading: false
+              };
             } else {
-              // Object response
+              // Single item
+              totalPointsToAdd = aiResult.points_earned ?? 0;
               finalResult = {
                 image_url: uploadResult.url,
                 object: aiResult.object || "Unknown",
                 material: aiResult.material || "Unknown",
                 disposal_instructions: aiResult.disposal_instructions || "No instructions",
                 description: aiResult.description || aiResult.description_info || "No description",
-                points_earned: aiResult.points_earned ?? 0,
+                points_earned: totalPointsToAdd,
                 co2value: aiResult.co2value || aiResult.co2 || "—",
-                isLoading: false
+                bbox: aiResult.bbox || [0, 0, 100, 100],
+                isLoading: false,
+                isMultipleItems: false
               };
             }
 
-            // Store the result but don't show the tab yet
+            // Add points to user database
+            if (totalPointsToAdd > 0) {
+              try {
+                await addPointsToUser(user.uid, totalPointsToAdd);
+                console.log(`Successfully added ${totalPointsToAdd} points to user`);
+              } catch (pointsError) {
+                console.error("Failed to add points to user:", pointsError);
+              }
+            }
+
             setScanResult(finalResult);
             setUploadStatus("Analysis complete.");
 
-            // Wait for scan animation to complete (3 seconds) before showing result tab
+            // Wait for scan animation to complete
             setTimeout(() => {
               setIsScanning(false);
               setShowResultTab(true);
-            }, 3000); // Match the scan animation duration
+            }, 3000);
 
           } catch (err) {
             console.error("Scan flow error:", err);
@@ -204,11 +234,11 @@ function CameraApp() {
               description: err.message,
               points_earned: 0,
               co2value: "—",
-              isLoading: false
+              isLoading: false,
+              isMultipleItems: false
             };
             setScanResult(errorResult);
             
-            // Still wait for animation to complete even on error
             setTimeout(() => {
               setIsScanning(false);
               setShowResultTab(true);
@@ -239,6 +269,7 @@ function CameraApp() {
     setShowResultTab(false);
     setScanResult(null);
   };
+
 
   return (
     <div className="fixed inset-0 bg-black z-50 w-screen h-screen">
