@@ -144,6 +144,55 @@ function Map() {
     }
   }, [map]);
 
+  // ✅ Check if we should automatically show garbage cans from scan result
+  useEffect(() => {
+    if (!map) return;
+    
+    const shouldShowGarbageCans = sessionStorage.getItem('showGarbageCans');
+    const storedGarbageCans = sessionStorage.getItem('nearbyGarbageCans');
+    const storedUserLocation = sessionStorage.getItem('userLocation');
+    
+    if (shouldShowGarbageCans === 'true' && storedGarbageCans) {
+      try {
+        const garbageCans = JSON.parse(storedGarbageCans);
+        const userLoc = storedUserLocation ? JSON.parse(storedUserLocation) : null;
+        
+        // Set user location if provided
+        if (userLoc) {
+          setUserLocation(userLoc);
+          map.setCenter(userLoc);
+          
+          // Add user marker
+          new window.google.maps.Marker({
+            position: userLoc,
+            map,
+            title: "You are here",
+            icon: {
+              path: window.google.maps.SymbolPath.CIRCLE,
+              scale: 8,
+              fillColor: "#4285F4",
+              fillOpacity: 1,
+              strokeColor: "#fff",
+              strokeWeight: 2,
+            },
+            animation: window.google.maps.Animation.DROP,
+          });
+        }
+        
+        // Automatically display the garbage cans
+        displayGarbageCanMarkers(garbageCans);
+        
+        // Clear the session storage
+        sessionStorage.removeItem('showGarbageCans');
+        sessionStorage.removeItem('nearbyGarbageCans');
+        sessionStorage.removeItem('userLocation');
+        
+      } catch (error) {
+        console.error('Failed to parse stored garbage cans data:', error);
+      }
+    }
+  }, [map]);
+
   // ✅ Distance function (Haversine)
   const calculateDistance = (lat1, lng1, lat2, lng2) => {
     const R = 6371000;
