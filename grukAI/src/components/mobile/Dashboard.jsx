@@ -23,6 +23,7 @@ function Dashboard() {
   const [isScanHistoryModalOpen, setIsScanHistoryModalOpen] = useState(false)
   const [selectedScanItem, setSelectedScanItem] = useState(null)
   const [isScanResultModalOpen, setIsScanResultModalOpen] = useState(false)
+  const [isScanSectionExpanded, setIsScanSectionExpanded] = useState(false)
   const [nearbyFacilities, setNearbyFacilities] = useState([])
   const [isLoadingLocation, setIsLoadingLocation] = useState(false)
   const [userLocation, setUserLocation] = useState(null)
@@ -847,14 +848,29 @@ function Dashboard() {
 
         {/* Recent Scan History Section */}
         <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 border border-emerald-200/30 shadow-sm">
-          <div 
-            className="flex items-center justify-between mb-4 cursor-pointer hover:bg-emerald-50/30 -m-2 p-2 rounded-xl transition-colors duration-200"
-            onClick={() => setIsScanHistoryModalOpen(true)}
-          >
+          <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-bold text-emerald-900">Latest Scans</h3>
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-emerald-600">View All</span>
-              <div className="text-2xl">📸</div>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setIsScanSectionExpanded(!isScanSectionExpanded)}
+                className="flex items-center gap-2 text-emerald-600 hover:text-emerald-800 transition-colors duration-200"
+              >
+                <span className="text-sm font-medium">
+                  {isScanSectionExpanded ? 'Show Less' : 'Show All'}
+                </span>
+                <div className={`transform transition-transform duration-300 text-lg ${
+                  isScanSectionExpanded ? 'rotate-180' : ''
+                }`}>
+                  ▼
+                </div>
+              </button>
+              <button
+                onClick={() => setIsScanHistoryModalOpen(true)}
+                className="text-emerald-600 hover:text-emerald-800 transition-colors duration-200"
+                title="Open full history modal"
+              >
+                <div className="text-2xl">📸</div>
+              </button>
             </div>
           </div>
 
@@ -866,7 +882,7 @@ function Dashboard() {
             </div>
           ) : (
             <div className="space-y-3">
-              {scanHistory.slice(0, 3).map((scan) => (
+              {scanHistory.slice(0, isScanSectionExpanded ? scanHistory.length : 3).map((scan) => (
                 <div
                   key={scan.id}
                   onClick={() => handleScanItemClick(scan)}
@@ -902,11 +918,11 @@ function Dashboard() {
                       </div>
 
                       {/* Tips */}
-                      {scan.tips && (
+                      {scan.response.disposalInstructions && (
                         <div className="bg-emerald-50/50 rounded-lg p-2 border border-emerald-200/50">
                           <p className="text-emerald-800 text-xs flex items-start gap-2">
-                            <span>💡</span>
-                            <span>{scan.tips}</span>
+                            <span>�</span>
+                            <span>{scan.response.disposalInstructions}</span>
                           </p>
                         </div>
                       )}
@@ -915,14 +931,28 @@ function Dashboard() {
                 </div>
               ))}
               
-              {/* View All Button */}
-              <button 
-                onClick={() => setIsScanHistoryModalOpen(true)}
-                className="w-full mt-4 bg-emerald-100 hover:bg-emerald-200 text-emerald-800 px-4 py-3 rounded-xl font-medium transition-all duration-300 transform hover:scale-105 flex items-center justify-center gap-2"
-              >
-                <span>📋</span>
-                View All Scan History
-              </button>
+              {/* View All Button - only show when not expanded and there are more than 3 items */}
+              {!isScanSectionExpanded && scanHistory.length > 3 && (
+                <button 
+                  onClick={() => setIsScanHistoryModalOpen(true)}
+                  className="w-full mt-4 bg-emerald-100 hover:bg-emerald-200 text-emerald-800 px-4 py-3 rounded-xl font-medium transition-all duration-300 transform hover:scale-105 flex items-center justify-center gap-2"
+                >
+                  <span>📋</span>
+                  View All Scan History ({scanHistory.length} total)
+                </button>
+              )}
+              
+              {/* Summary when expanded */}
+              {isScanSectionExpanded && scanHistory.length > 3 && (
+                <div className="text-center pt-4 border-t border-emerald-200/30 mt-4">
+                  <p className="text-emerald-700 text-sm">
+                    Showing all <span className="font-bold text-emerald-900">{scanHistory.length}</span> scans
+                  </p>
+                  <p className="text-emerald-600/80 text-xs mt-1">
+                    {scanHistory.filter(scan => scan.scanResult === 'recyclable').length} recyclable items found 🌱
+                  </p>
+                </div>
+              )}
             </div>
           )}
         </div>
