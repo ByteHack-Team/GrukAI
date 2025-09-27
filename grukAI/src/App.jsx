@@ -6,6 +6,7 @@ import Leaderboard from './components/mobile/Leaderboard'
 import Map from './components/mobile/Map'
 import Shop from './components/mobile/Shop'
 import LoginPage from './pages/LoginPage'
+import ItemDetail from './components/mobile/ItemDetail';
 import './App.css'
 
 function AppContent() {
@@ -24,6 +25,7 @@ function AppContent() {
             <Route path="/leaderboard" element={<Leaderboard />} />
             <Route path="/map" element={<Map />} />
             <Route path="/shop" element={<Shop />} />
+            <Route path="/item-detail" element={<ItemDetail />} />
           </Routes>
         </main>
       </div>
